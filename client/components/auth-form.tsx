@@ -55,28 +55,26 @@ export function AuthForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4 fade-in">
-      <div className="flex gap-2 text-sm font-medium">
-        <button type="button" onClick={() => setMode('login')} className={`flex-1 py-2 rounded-md transition ${mode==='login'?'bg-primary text-black':'bg-black/40 hover:bg-black/60'}`}>Login</button>
-        <button type="button" onClick={() => setMode('register')} className={`flex-1 py-2 rounded-md transition ${mode==='register'?'bg-primary text-black':'bg-black/40 hover:bg-black/60'}`}>Register</button>
+    <form onSubmit={submit} className="space-y-5 fade-in">
+      <div className="flex gap-2 text-sm font-medium" role="tablist" aria-label="Auth tabs">
+        <button type="button" aria-selected={mode==='login'} role="tab" onClick={() => setMode('login')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='login'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Login</button>
+        <button type="button" aria-selected={mode==='register'} role="tab" onClick={() => setMode('register')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='register'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Register</button>
       </div>
       {mode === 'register' && (
         <div className="space-y-1">
-          <label className="text-sm opacity-80">Name</label>
-          <input name="name" value={form.name} onChange={handleChange} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 focus:border-primary outline-none" />
+          <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="name">Name</label>
+          <input id="name" name="name" value={form.name} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/910 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
         </div>
       )}
       <div className="space-y-1">
-        <label className="text-sm opacity-80">Email</label>
-        <input name="email" type="email" value={form.email} onChange={handleChange} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 focus:border-primary outline-none" />
+        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="email">Email</label>
+        <input id="email" name="email" type="email" value={form.email} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
       <div className="space-y-1">
-        <label className="text-sm opacity-80">Password</label>
-        <input name="password" type="password" value={form.password} onChange={handleChange} className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 focus:border-primary outline-none" />
+        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="password">Password</label>
+        <input id="password" name="password" type="password" value={form.password} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
-      <button disabled={loading} className="btn-primary w-full h-11 rounded-md font-semibold tracking-wide">
-        {loading ? '...' : (mode === 'login' ? 'Login' : 'Create Account')}
-      </button>
+      <button disabled={loading} className="w-full h-11 rounded-md font-semibold tracking-wide bg-primary text-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(0,0,0,0.25),0_0_20px_-2px_rgba(255,196,0,0.6)] hover:brightness-105 transition focus:outline-none focus:ring-2 focus:ring-primary/50">{loading ? '...' : (mode === 'login' ? 'Login' : 'Create Account')}</button>
     </form>
   );
 }

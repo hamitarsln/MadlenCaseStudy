@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useSessionStore, authHeader } from '../../stores/session';
-import { Heading, Card } from '../../components/theme-provider';
+import { Heading, Card, useTheme } from '../../components/theme-provider';
+import { LoadingSpinner, PageLoader } from '../../components/loading';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Send, Target, Flame, BookOpen, Plus, Trash2 } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 
 interface ChatMsg { message: string; isUser: boolean; timestamp?: string; }
 interface Word { _id: string; word: string; meaning: string; translation: string; level: string; }
@@ -15,13 +17,18 @@ export default function Dashboard() {
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [words, setWords] = useState<Word[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [currentChannel, setCurrentChannel] = useState<string | null>(null);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const { theme, toggle } = useTheme();
+  const [adaptiveStatus, setAdaptiveStatus] = useState<{buffer:number; target:string; dyn?:string}>({buffer:0,target:'present_simple'});
 
   useEffect(() => {
     if (!hydrated || !user) return;
+    
+    setPageLoading(true);
     (async () => {
       try {
         const res = await fetch(`${apiBase}/api/chat/channels`, { headers: authHeader() as Record<string,string> });
@@ -29,7 +36,7 @@ export default function Dashboard() {
         const d = await res.json();
         if (d.success) {
           const list: Channel[] = d.channels.map((c: any) => ({ id: c._id || c.id, title: c.title, updatedAt: c.updatedAt, createdAt: c.createdAt }));
-          setChannels(list);
+            setChannels(list);
           const stored = localStorage.getItem('madlen-current-channel');
           const initial = (stored && list.find(c => c.id === stored)) ? stored : (list[0]?.id || null);
           setCurrentChannel(initial);
@@ -40,6 +47,7 @@ export default function Dashboard() {
         console.error('Channels fetch failed', e);
         toast.error(e.message || 'Kanallar yüklenemedi');
       }
+      
       try {
         const wr = await fetch(`${apiBase}/api/words/${user.level}?limit=8`, { cache: 'no-store' });
         if (!wr.ok) throw new Error(`Kelimeler HTTP ${wr.status}`);
@@ -48,6 +56,8 @@ export default function Dashboard() {
       } catch (e: any) {
         console.error('Words fetch failed', e);
       }
+      
+      setPageLoading(false);
     })();
   }, [hydrated, user]);
 
@@ -66,6 +76,22 @@ export default function Dashboard() {
       }
     })();
   }, [currentChannel, user]);
+
+  useEffect(()=>{
+    // fetch adaptive status endpoint placeholder (needs backend later)
+    if (!user) return;
+    (async ()=>{
+      try {
+        const r = await fetch(`${apiBase}/api/users/me`, { headers: authHeader() as Record<string,string> });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.success && d.user) {
+            setAdaptiveStatus({ buffer: d.user.levelBuffer||0, target: d.user.currentTargetStructure||'present_simple', dyn: d.user.dynamicLevel });
+          }
+        }
+      } catch {}
+    })();
+  },[user]);
 
   async function createChannel() {
     try {
@@ -117,10 +143,10 @@ export default function Dashboard() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       if (data.level && data.dynamicLevel) {
-        // update session user object
+        // update session user object with both levels
         const store = useSessionStore.getState();
         if (store.user) {
-          store.setSession(store.token!, { ...store.user, level: data.level });
+          store.setSession(store.token!, { ...store.user, level: data.level, dynamicLevel: data.dynamicLevel });
         }
       }
       if (!currentChannel && data.channelId) {
@@ -144,20 +170,45 @@ export default function Dashboard() {
     } finally { setLoading(false); }
   }
 
-  if (!hydrated) return <div className="p-10">Yükleniyor...</div>;
-  if (!user) return <div className="p-10">Oturum yok.</div>;
+  if (!hydrated) return <PageLoader text="Uygulama yükleniyor..." />;
+  if (!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
+  if (pageLoading) return <PageLoader text="Dashboard yükleniyor..." />;
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-16">
+      {/* Navbar */}
+      <div className="flex items-center justify-between mb-8 -mt-6 md:-mt-10 pb-4 border-b border-white/10">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-sm font-medium text-primary">Madlen</Link>
+          <Link href="/progress" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60 flex items-center gap-1"><BarChart3 size={14}/> İlerleme</Link>
+          <Link href="/learning" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60 flex items-center gap-1"><BookOpen size={14}/> Öğrenme</Link>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-[10px] text-white/50 flex flex-col items-end leading-tight">
+            <span>Level: <span className="text-primary font-semibold">{user.level}</span></span>
+            {user.dynamicLevel && user.dynamicLevel !== user.level && (
+              <span>Dinamik: <span className="text-primary/70 font-medium">{user.dynamicLevel}</span></span>
+            )}
+          </div>
+        </div>
+      </div>
+
       <header className="flex flex-col md:flex-row gap-6 md:items-end justify-between mb-8">
         <div>
           <Heading className="mb-2">Merhaba, {user.name.split(' ')[0]}</Heading>
-          <p className="text-white/60 text-sm">Seviye: <span className="text-primary font-medium">{user.level}</span></p>
+          <p className="text-white/60 text-sm">Seviye: <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-2 text-xs text-white/40">(Dinamik: {user.dynamicLevel})</span>}</p>
+          <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
+            <div className="flex items-center gap-1"><span className="uppercase tracking-wide">Buffer</span>
+              <span className="relative w-32 h-2 bg-white/10 rounded overflow-hidden">
+                <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${Math.min(100, Math.max(0, ((adaptiveStatus.buffer||0)+10)/20*100))}%` }} />
+              </span>
+              <span className="text-primary/80 font-semibold">{adaptiveStatus.buffer.toFixed(1)}</span>
+            </div>
+            <div className="flex items-center gap-1"><span>Hedef Yapı:</span><span className="text-primary font-medium">{adaptiveStatus.target}</span></div>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 w-full md:w-auto text-center">
-          <Stat icon={<Target size={18} />} label="Günlük" value={user.progress?.dailyGoal ?? 10} />
-          <Stat icon={<Flame size={18} />} label="Streak" value={user.progress?.streak ?? 0} />
-          <Stat icon={<BookOpen size={18} />} label="Kelimeler" value={user.progress?.wordsLearned ?? 0} />
+        <div className="grid grid-cols-1 gap-4 w-full md:w-auto text-center">
+          <Stat icon={<BookOpen size={18} />} label="Öğrenilen Kelime" value={user.progress?.wordsLearned ?? 0} />
         </div>
       </header>
 
@@ -165,14 +216,14 @@ export default function Dashboard() {
         <Card className="lg:col-span-1 flex flex-col h-[620px] overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Sohbetler</h2>
-            <button onClick={createChannel} className="text-xs px-2 py-1 bg-primary text-black rounded flex items-center gap-1"><Plus size={14}/> Yeni</button>
+            <button onClick={createChannel} className="text-xs px-2 py-1 bg-primary text-dark rounded flex items-center gap-1 hover:bg-primary-400 transition"><Plus size={14}/> Yeni</button>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-            {channels.length === 0 && <div className="text-xs text-white/40 py-4">Henüz sohbet yok</div>}
+            {channels.length === 0 && <div className="text-xs text-neutral-500 dark:text-white/40 py-4">Henüz sohbet yok</div>}
             {channels.map(ch => (
-              <div key={ch.id} className={`group relative text-xs rounded-md p-2 border cursor-pointer flex items-center gap-2 ${ch.id === currentChannel ? 'bg-primary text-black border-primary':'bg-black/30 border-white/10 hover:border-primary/40'}`} onClick={() => setCurrentChannel(ch.id)}>
+              <div key={ch.id} className={`group relative text-xs rounded-md p-2 border cursor-pointer flex items-center gap-2 transition-colors ${ch.id === currentChannel ? 'bg-primary text-dark border-primary':'bg-[var(--bg-muted)]/70 dark:bg-black/30 border-[var(--border)] dark:border-white/10 hover:border-primary/40'}`} onClick={() => setCurrentChannel(ch.id)}>
                 <span className="line-clamp-2 flex-1 text-left">{ch.title}</span>
-                <button onClick={(e)=>{e.stopPropagation(); deleteChannel(ch.id);}} className="opacity-0 group-hover:opacity-100 text-black/50 hover:text-black transition">
+                <button onClick={(e)=>{e.stopPropagation(); deleteChannel(ch.id);}} className="opacity-0 group-hover:opacity-100 text-neutral-500 dark:text-black/50 hover:text-black transition">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -185,13 +236,18 @@ export default function Dashboard() {
           <h2 className="font-semibold mb-3">AI Sohbet</h2>
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             {chat.map((m,i) => (
-              <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-2 text-sm leading-relaxed whitespace-pre-wrap ${m.isUser ? 'ml-auto bg-primary text-black shadow-neon':'bg-white/5 border border-white/10'}`}>{m.message}</motion.div>
+              <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>{m.message}</motion.div>
             ))}
-            {loading && <div className="text-xs text-white/40">Yazıyor...</div>}
+            {loading && (
+              <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-white/40">
+                <LoadingSpinner size="sm" />
+                <span>AI yazıyor...</span>
+              </div>
+            )}
           </div>
           <div className="mt-4 flex gap-2">
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Soru sor veya konuş" className="flex-1 bg-black/40 border border-white/10 rounded-md px-3 py-3 focus:border-primary outline-none" />
-            <button onClick={sendMessage} disabled={loading || !currentChannel && channels.length>6} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : ''} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center">{loading ? '...' : <Send size={18} />}</button>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Soru sor veya konuş" className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/40 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary outline-none transition-colors" />
+            <button onClick={sendMessage} disabled={loading || !currentChannel && channels.length>6} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : ''} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center">{loading ? <LoadingSpinner size="sm" /> : <Send size={18} />}</button>
           </div>
         </Card>
 
@@ -200,19 +256,19 @@ export default function Dashboard() {
             <h2 className="font-semibold mb-4">Önerilen Kelimeler</h2>
             <div className="grid grid-cols-2 gap-3">
               {words.map(w => (
-                <div key={w._id} className="group bg-black/40 rounded-md p-3 border border-white/10 hover:border-primary/60 transition text-sm">
+                <div key={w._id} className="group rounded-md p-3 border border-[var(--border)] dark:border-white/10 hover:border-primary/60 transition text-sm bg-[var(--bg-muted)]/60 dark:bg-black/40">
                   <div className="flex justify-between mb-1">
-                    <span className="font-medium text-primary-400">{w.word}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-primary-500/20 text-primary-200">{w.level}</span>
+                    <span className="font-medium text-primary-600 dark:text-primary-400">{w.word}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary-700 dark:text-primary-200 dark:bg-primary-500/20">{w.level}</span>
                   </div>
-                  <p className="text-white/60 line-clamp-2">{w.meaning}</p>
+                  <p className="text-neutral-600 dark:text-white/60 line-clamp-2">{w.meaning}</p>
                 </div>
               ))}
             </div>
           </Card>
           <Card>
             <h2 className="font-semibold mb-2">Motivasyon</h2>
-            <p className="text-sm text-white/70">Hedefini koru! Her gün az da olsa konuşarak ilerle. Yeni kelimeler sohbet içinde işaretlenecek.</p>
+            <p className="text-sm text-neutral-700 dark:text-white/70">Hedefini koru! Her gün az da olsa konuşarak ilerle. Yeni kelimeler sohbet içinde işaretlenecek.</p>
           </Card>
         </div>
       </div>
@@ -222,7 +278,7 @@ export default function Dashboard() {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="bg-black/40 rounded-xl px-4 py-3 border border-white/10">
+    <div className="bg-[var(--bg-muted)]/70 dark:bg-black/40 rounded-xl px-4 py-3 border border-[var(--border)] dark:border-white/10 transition-colors">
       <div className="flex items-center justify-center gap-1 text-primary mb-1 text-xs">{icon}{label}</div>
       <div className="font-semibold text-lg">{value}</div>
     </div>

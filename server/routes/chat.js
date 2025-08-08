@@ -91,7 +91,7 @@ router.post('/', auth, async (req, res) => {
       chatDoc = await Chat.create({ userId, messages: [], title: 'New Chat' });
     }
 
-    const systemPrompt = createPersonalizedPrompt(user);
+  const systemPrompt = createPersonalizedPrompt(user);
 
     const historyForAI = chatDoc.messages.slice(-10).map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.message }));
 
@@ -103,41 +103,86 @@ router.post('/', auth, async (req, res) => {
 
     let aiResponse;
 
-    if (!process.env.OPENROUTER_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY === 'your_openrouter_api_key_here') {
       aiResponse = generateMockResponse(message, user.level);
-      await persistChat(user, chatDoc, message, aiResponse);
+      // Parse mock metrics & update user
+      try {
+        const jsonMatch = aiResponse.match(/```json([\s\S]*?)```/i) || aiResponse.match(/\{\s*"grammar_score"[\s\S]*?\}/i);
+        if (jsonMatch) {
+          const metricsObj = JSON.parse(jsonMatch[1] ? jsonMatch[1].trim() : jsonMatch[0]);
+          if (metricsObj && typeof metricsObj.grammar_score === 'number') {
+            user.applyAdaptiveMetrics && user.applyAdaptiveMetrics({
+              grammar: metricsObj.grammar_score,
+              vocab: metricsObj.vocab_score || 0,
+              fluency: metricsObj.fluency_score || 0,
+              structureUsed: !!metricsObj.structure_used
+            });
+            await user.save();
+          }
+        }
+      } catch (_) { /* ignore */ }
+      const visible = aiResponse.replace(/```json[\s\S]*?```/i, '').trim();
+      await persistChat(user, chatDoc, message, aiResponse); // store full (with metrics) if needed for audits
       if (chatDoc.title === 'New Chat') {
         chatDoc.title = message.substring(0, 40) + (message.length > 40 ? '…' : '');
         await chatDoc.save();
       }
-      return res.json({ success: true, response: aiResponse, channelId: chatDoc._id, title: chatDoc.title, isDemo: true });
+      return res.json({ success: true, response: visible, channelId: chatDoc._id, title: chatDoc.title, isDemo: true });
     }
 
-    const openRouterResponse = await fetch(OPENROUTER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:3000',
-        'X-Title': 'Madlen English Learning App'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages,
-        max_tokens: 300,
-        temperature: 0.7
-      })
-    });
+    let data = null;
+    try {
+      const openRouterResponse = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:3000',
+          'X-Title': 'Madlen English Learning App'
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp:free',
+          messages,
+          max_tokens: 300,
+          temperature: 0.7
+        })
+      });
 
-    if (!openRouterResponse.ok) {
-      const errorData = await openRouterResponse.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'AI provider error');
+      if (!openRouterResponse.ok) {
+        const errorData = await openRouterResponse.json().catch(() => ({}));
+        console.error('[AI] Provider error status', openRouterResponse.status, errorData);
+        throw new Error(errorData.error?.message || 'Provider returned error');
+      }
+      data = await openRouterResponse.json();
+      aiResponse = data.choices?.[0]?.message?.content || 'I am here to help you practice English.';
+    } catch (aiErr) {
+      // Graceful fallback to mock instead of 500 so chat continues
+      console.warn('[AI] Falling back to mock response due to error:', aiErr.message);
+      aiResponse = generateMockResponse(message, user.level) + '\n(temporary fallback)';
     }
 
-    const data = await openRouterResponse.json();
-    aiResponse = data.choices?.[0]?.message?.content || 'I am here to help you practice English.';
+    // Optional: attempt to parse trailing JSON metrics if model followed instruction
+    try {
+      const jsonMatch = aiResponse.match(/```json([\s\S]*?)```/i) || aiResponse.match(/\{\s*"grammar_score"[\s\S]*?\}/i);
+      if (jsonMatch) {
+        const metricsObj = JSON.parse(jsonMatch[1] ? jsonMatch[1].trim() : jsonMatch[0]);
+        if (metricsObj && typeof metricsObj.grammar_score === 'number') {
+          user.applyAdaptiveMetrics && user.applyAdaptiveMetrics({
+            grammar: metricsObj.grammar_score,
+            vocab: metricsObj.vocab_score || metricsObj.vocab || metricsObj.vocabScore || 0,
+            fluency: metricsObj.fluency_score || metricsObj.fluency || 0,
+            structureUsed: !!metricsObj.structure_used
+          });
+          await user.save();
+        }
+      }
+    } catch (e) {
+      // silent parsing fail
+    }
 
-    await persistChat(user, chatDoc, message, aiResponse);
+  await persistChat(user, chatDoc, message, aiResponse);
+
+  const visible = aiResponse.replace(/```json[\s\S]*?```/i, '').trim();
 
     if (chatDoc.title === 'New Chat') {
       chatDoc.title = message.substring(0, 40) + (message.length > 40 ? '…' : '');
@@ -146,7 +191,7 @@ router.post('/', auth, async (req, res) => {
 
     await extractAndStoreLearned(user, aiResponse);
 
-    return res.json({ success: true, response: aiResponse, usage: data.usage, channelId: chatDoc._id, title: chatDoc.title, level: user.level, dynamicLevel: user.dynamicLevel });
+  return res.json({ success: true, response: visible, usage: data?.usage, channelId: chatDoc._id, title: chatDoc.title, level: user.level, dynamicLevel: user.dynamicLevel });
 
   } catch (error) {
     console.error('Chat error:', error);
@@ -173,16 +218,45 @@ function createPersonalizedPrompt(user) {
     A2: 'Use simple past and future occasionally, introduce new words gently.',
     B1: 'Use richer vocabulary and varied sentence structures, encourage elaboration.'
   };
-  return `You are an encouraging English tutor. Student level: ${user.level}. ${levelDescriptions[user.level]}\nStudent name: ${user.name}.\nRules: Correct mistakes gently, offer 1-2 new words with definitions (mark them with *new*), adapt complexity to level, encourage follow-up. Respond conversationally.`;
+  const target = user.currentTargetStructure || 'present_simple';
+  return `You are an encouraging English tutor. Student fixed level: ${user.level}. Dynamic level: ${user.dynamicLevel}. ${levelDescriptions[user.dynamicLevel] || levelDescriptions[user.level]}\nTarget structure to gently elicit: ${target}. If learner avoids it twice, craft a question that requires it.\nReturn natural dialogue. At end append a compact JSON metrics block like: {"grammar_score":1-5,"vocab_score":1-5,"fluency_score":1-5,"structure_used":true|false} inside a fenced \`\`\`json block.`;
 }
 
 function generateMockResponse(message, level) {
   const templates = {
-    A1: 'Great! Can you say it again in another way? New word: "practice" (to do something many times).',
-    A2: 'Nice sentence. Try adding more detail. New word: "improve" (to make better).',
-    B1: 'Good explanation. Could you expand with an example? New word: "approach" (a way of doing something).'
+    A1: [
+      'Great! Can you say it again in another way? *New word*: "practice" means to do something many times to get better.',
+      'Good job! Let me teach you a new word: "improve" means to make something better.',
+      'Nice! Try using this new word: "helpful" means useful or giving help.',
+      'Well done! Here\'s a useful word: "comfortable" means feeling relaxed and at ease.'
+    ],
+    A2: [
+      'Nice sentence! Can you add more detail? *New word*: "describe" means to say what something is like.',
+      'Good explanation! Try using: "however" means but or on the other hand.',
+      'Interesting point! Learn this word: "opinion" means what you think about something.',
+      'That\'s thoughtful! New word: "experience" means something that happens to you.'
+    ],
+    B1: [
+      'Excellent analysis! Could you expand with an example? *New word*: "approach" means a way of doing something.',
+      'Well reasoned! Consider this word: "perspective" means a way of thinking about something.',
+      'Thoughtful response! Try: "consequence" means a result of an action.',
+      'Great insight! Learn: "significance" means importance or meaning.'
+    ]
   };
-  return templates[level] || templates.A1;
+  
+  const levelTemplates = templates[level] || templates.A1;
+  const randomTemplate = levelTemplates[Math.floor(Math.random() * levelTemplates.length)];
+
+  // Simple heuristic mock metrics
+  const base = message.length > 40 ? 3 : 2;
+  const metrics = {
+    grammar_score: Math.min(5, base + Math.floor(Math.random() * 3)),
+    vocab_score: Math.min(5, base + Math.floor(Math.random() * 3)),
+    fluency_score: Math.min(5, base + Math.floor(Math.random() * 3)),
+    structure_used: /\b(will|did|has|have)\b/i.test(message)
+  };
+
+  return `${randomTemplate}\n\n\n\n\`\`\`json\n${JSON.stringify(metrics)}\n\`\`\``.replace(/`/g,'`');
 }
 
 async function extractAndStoreLearned(user, aiResponse) {

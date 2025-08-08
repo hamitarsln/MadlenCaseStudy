@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   level: string;
+  dynamicLevel?: string; // added
   role?: string;
   progress?: any;
 }

@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useSessionStore, authHeader } from '../../stores/session';
 import { Heading, Card } from '../../components/theme-provider';
+import { PageLoader, LoadingSpinner } from '../../components/loading';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface LearnedWord { id:string; word:string; meaning:string; level:string; mastery:number; learnedAt:string; }
 interface Structure { key:string; count:number; lastSeen:string; }
@@ -13,24 +15,44 @@ export default function ProgressPage(){
   const [summary,setSummary] = useState<Summary|null>(null);
   const [loading,setLoading] = useState(false);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const router = useRouter();
 
   useEffect(()=>{
     if(!hydrated || !user) return;
     setLoading(true);
     fetch(`${apiBase}/api/users/${user.id}/progress/summary`, { headers: authHeader() as any })
-      .then(r=>r.json())
-      .then(d=>{ if(d.success) setSummary(d.summary); else toast.error(d.message); })
-      .catch(e=> toast.error('Yüklenemedi'))
+      .then(async r => {
+        if (r.status === 404) {
+          // User no longer exists (likely DB reset / seed). Clear session.
+            useSessionStore.getState().clear();
+            toast.error('Oturum bulunamadı. Lütfen tekrar giriş yap.');
+            router.push('/');
+            return null;
+        }
+        if (r.status === 401) {
+          useSessionStore.getState().clear();
+          toast.error('Yetki hatası. Tekrar giriş yap.');
+          router.push('/');
+          return null;
+        }
+        try { return await r.json(); } catch { return null; }
+      })
+      .then(d=>{ if(d && d.success) setSummary(d.summary); else if(d && d.message) toast.error(d.message); })
+      .catch(()=> toast.error('Yüklenemedi'))
       .finally(()=> setLoading(false));
   },[hydrated,user]);
 
-  if(!hydrated) return <div className='p-10'>Yükleniyor...</div>;
-  if(!user) return <div className='p-10'>Oturum yok.</div>;
+  if(!hydrated) return <PageLoader text="Uygulama yükleniyor..." />;
+  if(!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
 
   return (
     <main className='max-w-6xl mx-auto px-6 py-14 space-y-10'>
       <Heading>İlerleme</Heading>
-      {loading && <div className='text-sm text-white/50'>Yükleniyor...</div>}
+      {loading && (
+        <div className="flex justify-center">
+          <LoadingSpinner size="lg" text="İlerleme verisi yükleniyor..." />
+        </div>
+      )}
       {summary && (
         <div className='grid lg:grid-cols-4 gap-6'>
           <div className='lg:col-span-1 space-y-6'>
@@ -39,7 +61,6 @@ export default function ProgressPage(){
               <div className='text-xs flex flex-col gap-1'>
                 <div>Başlangıç Level: <span className='text-primary font-medium'>{summary.level}</span></div>
                 <div>Dinamik Level: <span className='text-primary font-medium'>{summary.dynamicLevel}</span></div>
-                <div>Onaylı: {summary.levelConfirmed? 'Evet':'Hayır'}</div>
                 <div>Öğrenilen Kelime: {summary.counts.totalLearned}</div>
                 <div>Yapı Çeşidi: {summary.counts.structures}</div>
                 <div>Toplam Mesaj: {summary.progress.totalChatMessages}</div>

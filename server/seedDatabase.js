@@ -1,237 +1,112 @@
 const mongoose = require('mongoose');
-const Word = require('./models/Word');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
+const User = require('./models/User');
+const Word = require('./models/Word');
+
 const sampleWords = [
-  {
-    word: 'hello',
-    meaning: 'A greeting used when meeting someone',
-    translation: 'merhaba',
-    example: 'Hello, how are you today?',
-    exampleTranslation: 'Merhaba, bugün nasılsın?',
-    level: 'A1',
-    category: 'daily',
-    partOfSpeech: 'interjection',
-    difficulty: 1,
-    pronunciation: '/həˈloʊ/',
-    frequency: 100
-  },
-  {
-    word: 'cat',
-    meaning: 'A small domestic animal with fur and whiskers',
-    translation: 'kedi',
-    example: 'My cat likes to sleep on the sofa.',
-    exampleTranslation: 'Kedim koltukta uyumayı sever.',
-    level: 'A1',
-    category: 'family',
-    partOfSpeech: 'noun',
-    difficulty: 1,
-    pronunciation: '/kæt/',
-    frequency: 85
-  },
-  {
-    word: 'eat',
-    meaning: 'To put food in your mouth and swallow it',
-    translation: 'yemek',
-    example: 'I eat breakfast at 8 AM.',
-    exampleTranslation: 'Sabah 8\'de kahvaltı yaparım.',
-    level: 'A1',
-    category: 'food',
-    partOfSpeech: 'verb',
-    difficulty: 1,
-    pronunciation: '/iːt/',
-    frequency: 90
-  },
-  {
-    word: 'house',
-    meaning: 'A building where people live',
-    translation: 'ev',
-    example: 'This is my house.',
-    exampleTranslation: 'Bu benim evim.',
-    level: 'A1',
-    category: 'daily',
-    partOfSpeech: 'noun',
-    difficulty: 1,
-    pronunciation: '/haʊs/',
-    frequency: 88
-  },
-  {
-    word: 'happy',
-    meaning: 'Feeling joy or pleasure',
-    translation: 'mutlu',
-    example: 'I am happy to see you.',
-    exampleTranslation: 'Seni gördüğüm için mutluyum.',
-    level: 'A1',
-    category: 'emotions',
-    partOfSpeech: 'adjective',
-    difficulty: 1,
-    pronunciation: '/ˈhæpi/',
-    frequency: 82
-  },
+  // A1 Level
+  { word: 'hello', meaning: 'a greeting', translation: 'merhaba', example: 'Hello, how are you?', exampleTranslation: 'Merhaba, nasılsın?', level: 'A1', partOfSpeech: 'interjection', category: 'daily' },
+  { word: 'cat', meaning: 'a small domesticated animal', translation: 'kedi', example: 'The cat is sleeping.', exampleTranslation: 'Kedi uyuyor.', level: 'A1', partOfSpeech: 'noun', category: 'daily' },
+  { word: 'book', meaning: 'printed pages bound together', translation: 'kitap', example: 'I am reading a book.', exampleTranslation: 'Bir kitap okuyorum.', level: 'A1', partOfSpeech: 'noun', category: 'academic' },
+  { word: 'water', meaning: 'clear liquid', translation: 'su', example: 'I drink water every day.', exampleTranslation: 'Her gün su içerim.', level: 'A1', partOfSpeech: 'noun', category: 'daily' },
+  { word: 'eat', meaning: 'consume food', translation: 'yemek', example: 'I eat breakfast at 8 AM.', exampleTranslation: 'Kahvaltıyı sabah 8\'de yerim.', level: 'A1', partOfSpeech: 'verb', category: 'daily' },
+  { word: 'house', meaning: 'a building for living', translation: 'ev', example: 'My house is big.', exampleTranslation: 'Evim büyük.', level: 'A1', partOfSpeech: 'noun', category: 'daily' },
+  { word: 'dog', meaning: 'domesticated animal', translation: 'köpek', example: 'The dog is playing.', exampleTranslation: 'Köpek oynuyor.', level: 'A1', partOfSpeech: 'noun', category: 'daily' },
+  { word: 'good', meaning: 'of high quality', translation: 'iyi', example: 'This is a good movie.', exampleTranslation: 'Bu iyi bir film.', level: 'A1', partOfSpeech: 'adjective', category: 'daily' },
+  { word: 'big', meaning: 'large in size', translation: 'büyük', example: 'The elephant is big.', exampleTranslation: 'Fil büyüktür.', level: 'A1', partOfSpeech: 'adjective', category: 'daily' },
+  { word: 'small', meaning: 'little in size', translation: 'küçük', example: 'The mouse is small.', exampleTranslation: 'Fare küçüktür.', level: 'A1', partOfSpeech: 'adjective', category: 'daily' },
 
-  {
-    word: 'important',
-    meaning: 'Having great significance or value',
-    translation: 'önemli',
-    example: 'It is important to study English every day.',
-    exampleTranslation: 'Her gün İngilizce çalışmak önemlidir.',
-    level: 'A2',
-    category: 'academic',
-    partOfSpeech: 'adjective',
-    difficulty: 2,
-    pronunciation: '/ɪmˈpɔːrtənt/',
-    frequency: 95
-  },
-  {
-    word: 'different',
-    meaning: 'Not the same as another',
-    translation: 'farklı',
-    example: 'We have different opinions about this topic.',
-    exampleTranslation: 'Bu konuda farklı görüşlerimiz var.',
-    level: 'A2',
-    category: 'academic',
-    partOfSpeech: 'adjective',
-    difficulty: 2,
-    pronunciation: '/ˈdɪfərənt/',
-    frequency: 91
-  },
-  {
-    word: 'travel',
-    meaning: 'To go from one place to another',
-    translation: 'seyahat etmek',
-    example: 'I love to travel to new countries.',
-    exampleTranslation: 'Yeni ülkelere seyahat etmeyi seviyorum.',
-    level: 'A2',
-    category: 'travel',
-    partOfSpeech: 'verb',
-    difficulty: 2,
-    pronunciation: '/ˈtrævəl/',
-    frequency: 78
-  },
-  {
-    word: 'computer',
-    meaning: 'An electronic device for processing data',
-    translation: 'bilgisayar',
-    example: 'I use my computer for work and entertainment.',
-    exampleTranslation: 'Bilgisayarımı iş ve eğlence için kullanırım.',
-    level: 'A2',
-    category: 'technology',
-    partOfSpeech: 'noun',
-    difficulty: 2,
-    pronunciation: '/kəmˈpjuːtər/',
-    frequency: 89
-  },
-  {
-    word: 'healthy',
-    meaning: 'In good physical condition',
-    translation: 'sağlıklı',
-    example: 'Eating vegetables helps you stay healthy.',
-    exampleTranslation: 'Sebze yemek sağlıklı kalmanıza yardımcı olur.',
-    level: 'A2',
-    category: 'health',
-    partOfSpeech: 'adjective',
-    difficulty: 2,
-    pronunciation: '/ˈhelθi/',
-    frequency: 76
-  },
+  // A2 Level
+  { word: 'travel', meaning: 'go from one place to another', translation: 'seyahat etmek', example: 'I travel to work by bus.', exampleTranslation: 'İşe otobüsle seyahat ederim.', level: 'A2', partOfSpeech: 'verb', category: 'travel' },
+  { word: 'interesting', meaning: 'arousing curiosity', translation: 'ilginç', example: 'The movie was very interesting.', exampleTranslation: 'Film çok ilginçti.', level: 'A2', partOfSpeech: 'adjective', category: 'daily' },
+  { word: 'understand', meaning: 'comprehend', translation: 'anlamak', example: 'I understand the lesson.', exampleTranslation: 'Dersi anlıyorum.', level: 'A2', partOfSpeech: 'verb', category: 'academic' },
+  { word: 'important', meaning: 'of great significance', translation: 'önemli', example: 'Health is important.', exampleTranslation: 'Sağlık önemlidir.', level: 'A2', partOfSpeech: 'adjective', category: 'daily' },
+  { word: 'family', meaning: 'group of related people', translation: 'aile', example: 'My family is very supportive.', exampleTranslation: 'Ailem çok destekleyici.', level: 'A2', partOfSpeech: 'noun', category: 'family' },
+  { word: 'study', meaning: 'learn about something', translation: 'çalışmak', example: 'I study English every day.', exampleTranslation: 'Her gün İngilizce çalışırım.', level: 'A2', partOfSpeech: 'verb', category: 'academic' },
+  { word: 'problem', meaning: 'a difficult situation', translation: 'problem', example: 'We need to solve this problem.', exampleTranslation: 'Bu problemi çözmemiz gerekiyor.', level: 'A2', partOfSpeech: 'noun', category: 'daily' },
+  { word: 'different', meaning: 'not the same', translation: 'farklı', example: 'These two books are different.', exampleTranslation: 'Bu iki kitap farklı.', level: 'A2', partOfSpeech: 'adjective', category: 'daily' },
+  { word: 'computer', meaning: 'electronic device', translation: 'bilgisayar', example: 'I use my computer for work.', exampleTranslation: 'Bilgisayarımı iş için kullanırım.', level: 'A2', partOfSpeech: 'noun', category: 'technology' },
+  { word: 'happy', meaning: 'feeling joy', translation: 'mutlu', example: 'I am happy today.', exampleTranslation: 'Bugün mutluyum.', level: 'A2', partOfSpeech: 'adjective', category: 'emotions' },
 
+  // B1 Level
+  { word: 'environment', meaning: 'natural world', translation: 'çevre', example: 'We must protect the environment.', exampleTranslation: 'Çevreyi korumalıyız.', level: 'B1', partOfSpeech: 'noun', category: 'nature' },
+  { word: 'opportunity', meaning: 'chance for advancement', translation: 'fırsat', example: 'This is a great opportunity for you.', exampleTranslation: 'Bu senin için harika bir fırsat.', level: 'B1', partOfSpeech: 'noun', category: 'business' },
+  { word: 'develop', meaning: 'grow or make progress', translation: 'geliştirmek', example: 'We need to develop new skills.', exampleTranslation: 'Yeni beceriler geliştirmemiz gerekiyor.', level: 'B1', partOfSpeech: 'verb', category: 'business' },
+  { word: 'experience', meaning: 'practical knowledge', translation: 'deneyim', example: 'She has a lot of experience in teaching.', exampleTranslation: 'Öğretmenlikte çok deneyimi var.', level: 'B1', partOfSpeech: 'noun', category: 'business' },
+  { word: 'relationship', meaning: 'connection between people', translation: 'ilişki', example: 'They have a good relationship.', exampleTranslation: 'İyi bir ilişkileri var.', level: 'B1', partOfSpeech: 'noun', category: 'family' },
+  { word: 'communication', meaning: 'exchange of information', translation: 'iletişim', example: 'Good communication is essential.', exampleTranslation: 'İyi iletişim esastır.', level: 'B1', partOfSpeech: 'noun', category: 'business' },
+  { word: 'challenge', meaning: 'difficult task', translation: 'meydan okuma', example: 'Learning a new language is a challenge.', exampleTranslation: 'Yeni bir dil öğrenmek bir meydan okumadır.', level: 'B1', partOfSpeech: 'noun', category: 'academic' },
+  { word: 'analyze', meaning: 'examine in detail', translation: 'analiz etmek', example: 'We need to analyze the data carefully.', exampleTranslation: 'Verileri dikkatle analiz etmemiz gerekiyor.', level: 'B1', partOfSpeech: 'verb', category: 'academic' },
+  { word: 'achievement', meaning: 'successful accomplishment', translation: 'başarı', example: 'Graduating was a great achievement.', exampleTranslation: 'Mezun olmak büyük bir başarıydı.', level: 'B1', partOfSpeech: 'noun', category: 'academic' },
+  { word: 'responsibility', meaning: 'duty to deal with something', translation: 'sorumluluk', example: 'It is our responsibility to help others.', exampleTranslation: 'Başkalarına yardım etmek bizim sorumluluğumuzdur.', level: 'B1', partOfSpeech: 'noun', category: 'business' }
+];
+
+const sampleUsers = [
   {
-    word: 'achievement',
-    meaning: 'Something accomplished successfully',
-    translation: 'başarı, kazanım',
-    example: 'Graduating from university was a great achievement.',
-    exampleTranslation: 'Üniversiteden mezun olmak büyük bir başarıydı.',
+    email: 'admin@madlen.com',
+    password: 'admin123',
+    name: 'Admin User',
+    role: 'admin',
     level: 'B1',
-    category: 'academic',
-    partOfSpeech: 'noun',
-    difficulty: 3,
-    pronunciation: '/əˈtʃiːvmənt/',
-    frequency: 68
+    levelTestScore: 5,
+    levelConfirmed: true
   },
   {
-    word: 'environment',
-    meaning: 'The natural world around us',
-    translation: 'çevre',
-    example: 'We need to protect the environment for future generations.',
-    exampleTranslation: 'Gelecek nesiller için çevreyi korumalıyız.',
-    level: 'B1',
-    category: 'nature',
-    partOfSpeech: 'noun',
-    difficulty: 3,
-    pronunciation: '/ɪnˈvaɪrənmənt/',
-    frequency: 72
-  },
-  {
-    word: 'opportunity',
-    meaning: 'A chance for advancement or progress',
-    translation: 'fırsat',
-    example: 'This internship is a great opportunity to learn.',
-    exampleTranslation: 'Bu staj öğrenmek için harika bir fırsat.',
-    level: 'B1',
-    category: 'business',
-    partOfSpeech: 'noun',
-    difficulty: 3,
-    pronunciation: '/ˌɑːpərˈtuːnəti/',
-    frequency: 74
-  },
-  {
-    word: 'influence',
-    meaning: 'The power to affect someone or something',
-    translation: 'etki, nüfuz',
-    example: 'Social media has a strong influence on young people.',
-    exampleTranslation: 'Sosyal medyanın gençler üzerinde güçlü bir etkisi var.',
-    level: 'B1',
-    category: 'academic',
-    partOfSpeech: 'noun',
-    difficulty: 3,
-    pronunciation: '/ˈɪnfluəns/',
-    frequency: 70
-  },
-  {
-    word: 'responsibility',
-    meaning: 'A duty or task that you are required to do',
-    translation: 'sorumluluk',
-    example: 'It is our responsibility to take care of our planet.',
-    exampleTranslation: 'Gezegenimizle ilgilenmek bizim sorumluluğumuz.',
-    level: 'B1',
-    category: 'academic',
-    partOfSpeech: 'noun',
-    difficulty: 3,
-    pronunciation: '/rɪˌspɑːnsəˈbɪləti/',
-    frequency: 69
+    email: 'student@example.com',
+    password: 'student123',
+    name: 'Test Student',
+    role: 'user',
+    level: 'A2',
+    levelTestScore: 3,
+    levelConfirmed: true,
+    progress: {
+      wordsLearned: 15,
+      dailyGoal: 10,
+      streak: 3,
+      totalChatMessages: 25
+    }
   }
 ];
 
 async function seedDatabase() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
 
-    console.log('✅ Connected to MongoDB');
+    // Clear existing data
+    console.log('Clearing existing data...');
+    await User.deleteMany({});
     await Word.deleteMany({});
-    console.log('🗑️ Cleared existing words');
 
-    await Word.insertMany(sampleWords);
-    console.log(`✅ Successfully inserted ${sampleWords.length} sample words`);
+    // Seed words
+    console.log('Seeding words...');
+    for (const wordData of sampleWords) {
+      const word = new Word(wordData);
+      await word.save();
+    }
+    console.log(`Seeded ${sampleWords.length} words`);
 
-    const stats = await Word.aggregate([
-      { $group: { _id: '$level', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]);
+    // Seed users
+    console.log('Seeding users...');
+    for (const userData of sampleUsers) {
+      const user = new User(userData);
+      await user.save();
+    }
+    console.log(`Seeded ${sampleUsers.length} users`);
 
-    console.log('📊 Words by level:');
-    stats.forEach(stat => {
-      console.log(`   ${stat._id}: ${stat.count} words`);
-    });
-
-    mongoose.disconnect();
-    console.log('✅ Database seeding completed successfully');
+    console.log('Database seeding completed successfully!');
+    console.log('Sample users created:');
+    console.log('- Admin: admin@madlen.com / admin123');
+    console.log('- Student: student@example.com / student123');
 
   } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    process.exit(1);
+    console.error('Error seeding database:', error);
+  } finally {
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
   }
 }
 
@@ -239,4 +114,4 @@ if (require.main === module) {
   seedDatabase();
 }
 
-module.exports = { seedDatabase, sampleWords };
+module.exports = seedDatabase;

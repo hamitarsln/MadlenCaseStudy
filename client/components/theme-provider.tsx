@@ -1,7 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import clsx from 'clsx';
-import { Moon, Sun } from 'lucide-react';
 
 const ThemeCtx = createContext<{theme:'dark'|'light'; toggle: ()=>void}>({ theme:'dark', toggle: ()=>{} });
 export const useTheme = ()=> useContext(ThemeCtx);
@@ -9,21 +8,18 @@ export const useTheme = ()=> useContext(ThemeCtx);
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useState<'dark'|'light'>('dark');
   useEffect(()=>{
-    const saved = localStorage.getItem('madlen-theme');
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('madlen-theme') : null;
     if (saved === 'light' || saved === 'dark') setTheme(saved as any);
   },[]);
   useEffect(()=>{
     document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('madlen-theme', theme);
   },[theme]);
+  const noop = () => {};
   return (
-    <ThemeCtx.Provider value={{ theme, toggle: ()=> setTheme(t=> t==='dark'?'light':'dark') }}>
+    <ThemeCtx.Provider value={{ theme, toggle: noop }}>
       {children}
-      <div className="fixed z-50 top-4 right-4">
-        <button aria-label="Toggle theme" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} className="btn-outline w-10 h-10 rounded-full flex items-center justify-center">
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      </div>
     </ThemeCtx.Provider>
   );
 };

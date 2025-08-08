@@ -16,6 +16,27 @@ function auth(req, res, next) {
   }
 }
 
+// Current authenticated user with adaptive learning fields
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    res.json({ success:true, user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      level: user.level,
+      dynamicLevel: user.dynamicLevel,
+      levelBuffer: user.levelBuffer,
+      currentTargetStructure: user.currentTargetStructure,
+      skillScores: user.skillScores
+    }});
+  } catch (e) {
+    console.error('Get me error', e);
+    res.status(500).json({ success:false, message:'Cannot fetch profile' });
+  }
+});
+
 router.get('/:id', auth, async (req, res) => {
   if (req.user.id !== req.params.id && req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Forbidden' });
@@ -39,12 +60,14 @@ router.get('/:id', auth, async (req, res) => {
         email: user.email,
         level: user.level,
         dynamicLevel: user.dynamicLevel,
+        levelBuffer: user.levelBuffer,
+        currentTargetStructure: user.currentTargetStructure,
+        skillScores: user.skillScores,
         levelTestScore: user.levelTestScore,
         progress: user.progress,
         wordsLearned: user.wordsLearned,
         learnedStructures: user.learnedStructures,
-        lastActive: user.lastActive,
-        isDailyGoalMet: user.isDailyGoalMet()
+        lastActive: user.lastActive
       }
     });
 
@@ -62,7 +85,7 @@ router.put('/:id/progress', auth, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Forbidden' });
   }
   try {
-    const { wordsLearned, dailyGoal, streak } = req.body;
+    const { wordsLearned } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -73,8 +96,6 @@ router.put('/:id/progress', auth, async (req, res) => {
     }
 
     if (wordsLearned !== undefined) user.progress.wordsLearned = wordsLearned;
-    if (dailyGoal !== undefined) user.progress.dailyGoal = dailyGoal;
-    if (streak !== undefined) user.progress.streak = streak;
 
     await user.save();
 
@@ -137,8 +158,7 @@ router.post('/:id/learn-word', auth, async (req, res) => {
     res.json({
       success: true,
       message: 'Word marked as learned',
-      progress: user.progress,
-      isDailyGoalMet: user.isDailyGoalMet()
+      progress: user.progress
     });
 
   } catch (error) {

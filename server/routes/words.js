@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Word = require('../models/Word');
+const User = require('../models/User');
+const mongoose = require('mongoose'); // added for ObjectId in learning queue
 
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -12,6 +14,138 @@ function auth(req, res, next) {
   } catch (e) { return res.status(401).json({ success: false, message: 'Invalid token' }); }
 }
 function admin(req, res, next) { if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' }); next(); }
+
+// LEARNING HUB ENDPOINTS
+// Get study queue (due reviews + new suggestions)
+router.get('/learning/queue', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('wordsLearned.wordId');
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+
+    // Due review entries
+    const dueEntries = typeof user.getDueWordEntries === 'function' ? user.getDueWordEntries(50) : [];
+    const now = Date.now();
+    const dueWords = dueEntries.filter(e => e.wordId).map(e => ({
+      id: e.wordId._id,
+      word: e.wordId.word,
+      meaning: e.wordId.meaning,
+      translation: e.wordId.translation,
+      level: e.wordId.level,
+      mastery: e.mastery,
+      nextReviewAt: e.nextReviewAt,
+      interval: e.interval,
+      overdue: e.nextReviewAt && e.nextReviewAt.getTime() < now,
+      review: true
+    }));
+
+    const targetQueueSize = 15;
+    let remaining = Math.max(0, targetQueueSize - dueWords.length);
+
+    // Collect new candidate words (not yet learned) with a simple find instead of aggregate
+    let newWords = [];
+    if (remaining > 0) {
+      const learnedIds = new Set(user.wordsLearned.map(w => w.wordId && w.wordId._id ? w.wordId._id.toString() : ''));
+      const level = user.level || user.dynamicLevel || 'A1';
+      const candidates = await Word.find({ level, isActive: true }).limit(200).lean();
+      const filtered = candidates.filter(c => !learnedIds.has(c._id.toString()));
+      // Shuffle
+      for (let i = filtered.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+      }
+      newWords = filtered.slice(0, remaining).map(w => ({
+        id: w._id,
+        word: w.word,
+        meaning: w.meaning,
+        translation: w.translation,
+        level: w.level,
+        mastery: 0,
+        review: false
+      }));
+    }
+
+    return res.json({
+      success: true,
+      queue: [...dueWords, ...newWords],
+      meta: {
+        dueCount: dueWords.length,
+        newCount: newWords.length,
+        totalLearned: user.wordsLearned.length
+      }
+    });
+  } catch (e) {
+    console.error('Learning queue fatal error:', e.stack || e);
+    res.status(500).json({ success:false, message:'Cannot build learning queue', error: e.message });
+  }
+});
+
+// Mark new word as started/learned (adds to user words)
+router.post('/learning/start', auth, async (req, res) => {
+  try {
+    const { wordId } = req.body;
+    if (!wordId) return res.status(400).json({ success:false, message:'wordId required' });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    if (user.wordsLearned.find(w => w.wordId.toString() === wordId)) {
+      return res.json({ success:true, message:'Already in list' });
+    }
+    user.wordsLearned.push({ wordId, mastery:1, interval:1, nextReviewAt: new Date() });
+    user.progress.wordsLearned += 1;
+    await user.save();
+    res.status(201).json({ success:true, message:'Word added to learning list' });
+  } catch (e) {
+    console.error('Learning start error', e);
+    res.status(500).json({ success:false, message:'Cannot start learning word' });
+  }
+});
+
+// Review a word (spaced repetition update)
+router.post('/learning/review', auth, async (req, res) => {
+  try {
+    const { wordId, correct } = req.body;
+    if (!wordId || typeof correct !== 'boolean') return res.status(400).json({ success:false, message:'wordId and correct(boolean) required' });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    const updated = user.updateLearningProgress(wordId, correct);
+    if (!updated) return res.status(404).json({ success:false, message:'Word not in learning list' });
+    await user.save();
+    res.json({ success:true, result: {
+      mastery: updated.mastery,
+      interval: updated.interval,
+      nextReviewAt: updated.nextReviewAt,
+      lastResult: updated.lastResult
+    }});
+  } catch (e) {
+    console.error('Learning review error', e);
+    res.status(500).json({ success:false, message:'Cannot review word' });
+  }
+});
+
+// Recommendations (words close to mastery threshold or same category)
+router.get('/learning/recommendations', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('wordsLearned.wordId');
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    const masteredCategories = {};
+    user.wordsLearned.forEach(w => {
+      if (w.mastery >= 4 && w.wordId?.category) {
+        masteredCategories[w.wordId.category] = (masteredCategories[w.wordId.category] || 0) + 1;
+      }
+    });
+    const topCategory = Object.entries(masteredCategories).sort((a,b)=>b[1]-a[1])[0]?.[0];
+    let rec = [];
+    if (topCategory) {
+      const learnedIds = user.wordsLearned.map(w => w.wordId._id.toString());
+      rec = await Word.find({ category: topCategory, level: user.level, isActive:true, _id: { $nin: learnedIds } }).limit(10);
+    } else {
+      rec = await Word.find({ level: user.level, isActive:true }).limit(10);
+    }
+    res.json({ success:true, recommendations: rec });
+  } catch (e) {
+    console.error('Learning recommendations error', e);
+    res.status(500).json({ success:false, message:'Cannot fetch recommendations' });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {

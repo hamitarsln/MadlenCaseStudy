@@ -4,16 +4,24 @@
 
 :root {
   --radius: 10px;
+  --bg: #fafafa;
+  --bg-muted: #ffffff;
+  --text: #111111;
+  --border: rgba(0,0,0,0.12);
+}
+.dark:root, .dark {
+  --bg: #0D0D0D;
+  --bg-muted: rgba(255,255,255,0.05);
+  --text: #ffffff;
+  --border: rgba(255,255,255,0.08);
 }
 
-body {
-  -webkit-font-smoothing: antialiased;
-}
+body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 6px; border: 2px solid #111; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 6px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-thumb:hover { background: #333; }
 
 /* Fancy focus outline */
@@ -23,12 +31,12 @@ body {
 .gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-yellow-200 to-primary-500; }
 
 /* Card glass effect */
-.glass { @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-glow; }
+.glass { @apply backdrop-blur-md shadow-glow; background: var(--bg-muted); border:1px solid var(--border); }
 
 /* Button base */
 .btn { @apply inline-flex items-center justify-center rounded-md font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
 .btn-primary { @apply btn bg-primary text-dark hover:bg-primary-400 shadow-neon; }
-.btn-outline { @apply btn border border-primary/60 hover:border-primary bg-black/30 hover:bg-black/50 text-primary; }
+.btn-outline { @apply btn border border-primary/60 hover:border-primary bg-[var(--bg-muted)] hover:bg-[var(--bg-muted)] text-primary; }
 
 /* Animate in */
 .fade-in { animation: fadeIn .6s ease both; }
