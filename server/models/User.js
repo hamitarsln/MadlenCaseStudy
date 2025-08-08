@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -8,10 +9,21 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  password: {
+    type: String,
+    required: true,
+    minlength: 6,
+    select: false
+  },
   name: {
     type: String,
     required: true,
     trim: true
+  },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
   },
   level: {
     type: String,
@@ -74,10 +86,19 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-userSchema.pre('save', function(next) {
+userSchema.pre('save', async function(next) {
   this.lastActive = Date.now();
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
   next();
 });
+
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
 userSchema.methods.calculateLevel = function() {
   if (this.levelTestScore <= 1) return 'A1';
   if (this.levelTestScore <= 3) return 'A2';

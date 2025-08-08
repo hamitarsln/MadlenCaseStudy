@@ -28,6 +28,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/words', require('./routes/words'));
+app.use('/api/admin', require('./routes/admin'));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

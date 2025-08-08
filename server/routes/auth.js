@@ -1,15 +1,32 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+
+// Helper to generate JWT
+function generateToken(user) {
+  return jwt.sign(
+    { id: user._id, email: user.email, role: user.role },
+    process.env.JWT_SECRET || 'dev_secret_key',
+    { expiresIn: '7d' }
+  );
+}
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const { email, name, password } = req.body;
 
-    if (!email || !name) {
+    if (!email || !name || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email and name are required'
+        message: 'Email, name and password are required'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
       });
     }
 
@@ -23,19 +40,24 @@ router.post('/register', async (req, res) => {
 
     const newUser = new User({
       email: email.toLowerCase(),
-      name: name.trim()
+      name: name.trim(),
+      password
     });
 
     await newUser.save();
 
+    const token = generateToken(newUser);
+
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
+      token,
       user: {
         id: newUser._id,
         name: newUser.name,
         email: newUser.email,
-        level: newUser.level
+        level: newUser.level,
+        role: newUser.role
       }
     });
 
@@ -50,16 +72,16 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, password } = req.body;
 
-    if (!email) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: 'Email and password are required'
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -67,19 +89,31 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
     user.lastActive = new Date();
     await user.save();
+
+    const token = generateToken(user);
 
     res.json({
       success: true,
       message: 'Login successful',
+      token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         level: user.level,
         progress: user.progress,
-        levelTestScore: user.levelTestScore
+        levelTestScore: user.levelTestScore,
+        role: user.role
       }
     });
 
@@ -94,7 +128,7 @@ router.post('/login', async (req, res) => {
 
 router.post('/level-test', async (req, res) => {
   try {
-    const { userId, score, answers } = req.body;
+    const { userId, score } = req.body;
 
     if (!userId || score === undefined) {
       return res.status(400).json({
@@ -113,7 +147,6 @@ router.post('/level-test', async (req, res) => {
 
     user.levelTestScore = score;
     user.level = user.calculateLevel();
-
     await user.save();
 
     res.json({

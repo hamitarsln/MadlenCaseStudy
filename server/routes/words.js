@@ -1,6 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const Word = require('../models/Word');
+
+function auth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'No token' });
+  try {
+    req.user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET || 'dev_secret_key');
+    next();
+  } catch (e) { return res.status(401).json({ success: false, message: 'Invalid token' }); }
+}
+function admin(req, res, next) { if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' }); next(); }
 
 router.get('/', async (req, res) => {
   try {
@@ -136,7 +147,7 @@ router.get('/:level', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', auth, admin, async (req, res) => {
   try {
     const wordData = req.body;
 
@@ -176,6 +187,33 @@ router.post('/', async (req, res) => {
       success: false,
       message: 'Server error while adding word'
     });
+  }
+});
+
+router.delete('/:id', auth, admin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Word.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ success: false, message: 'Word not found' });
+    res.json({ success: true, message: 'Word deleted', id });
+  } catch (error) {
+    console.error('Delete word error:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting word' });
+  }
+});
+
+// Admin list all words with pagination
+router.get('/admin/all', auth, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [words, total] = await Promise.all([
+      Word.find({}).skip(skip).limit(parseInt(limit)).sort({ createdAt: -1 }),
+      Word.countDocuments({})
+    ]);
+    res.json({ success: true, words, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error while listing all words' });
   }
 });
 

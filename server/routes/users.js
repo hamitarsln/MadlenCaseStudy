@@ -1,9 +1,25 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Word = require('../models/Word');
 
-router.get('/:id', async (req, res) => {
+function auth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ success: false, message: 'No token' });
+  const token = authHeader.split(' ')[1];
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_key');
+    next();
+  } catch (e) {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+}
+
+router.get('/:id', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   try {
     const user = await User.findById(req.params.id)
       .populate('wordsLearned.wordId', 'word meaning level');
@@ -39,7 +55,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id/progress', async (req, res) => {
+router.put('/:id/progress', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   try {
     const { wordsLearned, dailyGoal, streak } = req.body;
     const user = await User.findById(req.params.id);
@@ -72,7 +91,10 @@ router.put('/:id/progress', async (req, res) => {
   }
 });
 
-router.post('/:id/learn-word', async (req, res) => {
+router.post('/:id/learn-word', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   try {
     const { wordId, mastery = 1 } = req.body;
     const user = await User.findById(req.params.id);
@@ -126,7 +148,10 @@ router.post('/:id/learn-word', async (req, res) => {
   }
 });
 
-router.post('/:id/chat-history', async (req, res) => {
+router.post('/:id/chat-history', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   try {
     const { message, isUser } = req.body;
     const user = await User.findById(req.params.id);
@@ -168,7 +193,10 @@ router.post('/:id/chat-history', async (req, res) => {
   }
 });
 
-router.get('/:id/chat-history', async (req, res) => {
+router.get('/:id/chat-history', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
   try {
     const { limit = 50 } = req.query;
     const user = await User.findById(req.params.id);
