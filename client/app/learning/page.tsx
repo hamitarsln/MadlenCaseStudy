@@ -44,7 +44,6 @@ export default function LearningHubPage(){
   async function mark(correct:boolean){
     if(!reviewing) return;
     if (!reviewing.review) {
-      // first time learning -> add to list as correct
       setAdding(true);
       try {
         const res = await fetch(`${apiBase}/api/words/learning/start`, { method:'POST', headers:{ 'Content-Type':'application/json', ...(authHeader() as any)}, body: JSON.stringify({ wordId: reviewing.id }) });
@@ -74,8 +73,8 @@ export default function LearningHubPage(){
   return (
     <main className="max-w-6xl mx-auto px-6 py-14 space-y-10">
       <div className="flex items-center justify-between">
-        <Heading>Learning Hub</Heading>
-        <Link href="/dashboard" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60">Dashboard</Link>
+        <Heading>Öğrenme Merkezi</Heading>
+        <Link href="/dashboard" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60">Pano</Link>
       </div>
       <div className="grid lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2 p-6 space-y-6">
@@ -97,8 +96,8 @@ export default function LearningHubPage(){
                 <div className="text-xs text-white/60 line-clamp-2">{w.meaning}</div>
                 {w.review && (
                   <div className="flex gap-2 items-center text-[10px] text-white/40">
-                    <span>Mastery {w.mastery}</span>
-                    <span>İnterval {w.interval}g</span>
+                    <span>Ustalık {w.mastery}</span>
+                    <span>Aralık {w.interval}g</span>
                   </div>
                 )}
                 <button onClick={()=> startReview(w)} className="w-full text-xs px-3 py-2 rounded bg-primary text-black hover:bg-primary-400 flex items-center justify-center gap-1">
@@ -120,9 +119,9 @@ export default function LearningHubPage(){
                   )}
                   {showAnswer && (
                     <div className="space-y-2 text-sm bg-black/30 border border-white/10 rounded p-3">
-                      <div><span className="text-white/50">Meaning:</span> {reviewing.meaning}</div>
-                      <div><span className="text-white/50">Translation:</span> {reviewing.translation}</div>
-                      {reviewing.review && <div className="text-[10px] text-white/40">Mastery {reviewing.mastery} • Interval {reviewing.interval}g</div>}
+                      <div><span className="text-white/50">Anlam:</span> {reviewing.meaning}</div>
+                      <div><span className="text-white/50">Çeviri:</span> {reviewing.translation}</div>
+                      {reviewing.review && <div className="text-[10px] text-white/40">Ustalık {reviewing.mastery} • Aralık {reviewing.interval}g</div>}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3 pt-2">

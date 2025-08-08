@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Send, BookOpen, Plus, Trash2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
+import { MessageFormatter } from '../../components/message-formatter';
 
 interface ChatMsg { message: string; isUser: boolean; timestamp?: string; }
 interface Word { _id: string; word: string; meaning: string; translation: string; level: string; }
@@ -78,7 +79,6 @@ export default function Dashboard() {
   }, [currentChannel, user]);
 
   useEffect(()=>{
-    // fetch adaptive status endpoint placeholder (needs backend later)
     if (!user) return;
     (async ()=>{
       try {
@@ -86,7 +86,11 @@ export default function Dashboard() {
         if (r.ok) {
           const d = await r.json();
           if (d.success && d.user) {
-            setAdaptiveStatus({ buffer: d.user.levelBuffer||0, target: d.user.currentTargetStructure||'present_simple', dyn: d.user.dynamicLevel });
+            setAdaptiveStatus({ 
+              buffer: d.user.levelBuffer || 0, 
+              target: d.user.currentTargetStructure || 'present_simple', 
+              dyn: d.user.dynamicLevel 
+            });
           }
         }
       } catch {}
@@ -98,7 +102,7 @@ export default function Dashboard() {
       const res = await fetch(`${apiBase}/api/chat/channels`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authHeader() as Record<string,string>) },
-        body: JSON.stringify({ title: 'New Chat' })
+        body: JSON.stringify({ title: 'Yeni Sohbet' })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
@@ -138,12 +142,15 @@ export default function Dashboard() {
       const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(authHeader() as Record<string,string>) },
-        body: JSON.stringify({ message: content, channelId: currentChannel })
+        body: JSON.stringify({ 
+          message: content, 
+          channelId: currentChannel,
+          suggestedWords: words.slice(0, 4).map(w => w.word) 
+        })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       if (data.level && data.dynamicLevel) {
-        // update session user object with both levels
         const store = useSessionStore.getState();
         if (store.user) {
           store.setSession(store.token!, { ...store.user, level: data.level, dynamicLevel: data.dynamicLevel });
@@ -160,19 +167,19 @@ export default function Dashboard() {
           const target = updated.find(c => c.id === id)!;
           return [target, ...updated.filter(c => c.id !== id)];
         } else {
-          return [{ id, title: data.title || 'New Chat', updatedAt: new Date().toISOString() }, ...prev];
+          return [{ id, title: data.title || 'Yeni Sohbet', updatedAt: new Date().toISOString() }, ...prev];
         }
       });
       setChat(c => [...c, { message: data.response, isUser: false }]);
     } catch (e: any) {
-      toast.error(e.message || 'Chat error');
+      toast.error(e.message || 'Sohbet hatası');
       setChat(c => c.slice(0, -1)); 
     } finally { setLoading(false); }
   }
 
   if (!hydrated) return <PageLoader text="Uygulama yükleniyor..." />;
   if (!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
-  if (pageLoading) return <PageLoader text="Dashboard yükleniyor..." />;
+  if (pageLoading) return <PageLoader text="Pano yükleniyor..." />;
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-16">
@@ -198,6 +205,9 @@ export default function Dashboard() {
           <Heading className="mb-2">Merhaba, {user.name.split(' ')[0]}</Heading>
           <p className="text-white/60 text-sm">Seviye: <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-2 text-xs text-white/40">(Dinamik: {user.dynamicLevel})</span>}</p>
           <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
+            {adaptiveStatus.buffer !== undefined && (
+              <span>Buffer: <span className={adaptiveStatus.buffer >= 0 ? 'text-primary' : 'text-red-400'}>{adaptiveStatus.buffer.toFixed(1)}/10</span></span>
+            )}
             <div className="flex items-center gap-1"><span className="uppercase tracking-wide">Buffer</span>
               <span className="relative w-32 h-2 bg-white/10 rounded overflow-hidden">
                 <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${Math.min(100, Math.max(0, ((adaptiveStatus.buffer||0)+10)/20*100))}%` }} />
@@ -236,7 +246,9 @@ export default function Dashboard() {
           <h2 className="font-semibold mb-3">AI Sohbet</h2>
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             {chat.map((m,i) => (
-              <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>{m.message}</motion.div>
+              <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-3 text-sm leading-relaxed shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>
+                <MessageFormatter content={m.message} isUser={m.isUser} />
+              </motion.div>
             ))}
             {loading && (
               <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-white/40">
@@ -246,7 +258,7 @@ export default function Dashboard() {
             )}
           </div>
           <div className="mt-4 flex gap-2">
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Soru sor veya konuş" className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/40 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary outline-none transition-colors" />
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Soru sor veya konuş..." className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/40 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary outline-none transition-colors" />
             <button onClick={sendMessage} disabled={loading || !currentChannel && channels.length>6} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : ''} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center">{loading ? <LoadingSpinner size="sm" /> : <Send size={18} />}</button>
           </div>
         </Card>

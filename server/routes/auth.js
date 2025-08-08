@@ -18,14 +18,14 @@ router.post('/register', async (req, res) => {
     if (!email || !name || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email, name and password are required'
+        message: 'E-posta, ad ve şifre gerekli'
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters'
+        message: 'Şifre en az 6 karakter olmalı'
       });
     }
 
@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email'
+        message: 'Bu e-posta ile zaten bir kullanıcı mevcut'
       });
     }
 
@@ -41,7 +41,7 @@ router.post('/register', async (req, res) => {
       email: email.toLowerCase(),
       name: name.trim(),
       password,
-      levelConfirmed: false // will be set after test
+      levelConfirmed: false 
     });
 
     await newUser.save();
@@ -50,7 +50,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User registered, level test required',
+      message: 'Kullanıcı kaydedildi, seviye testi gerekli',
       token,
       user: {
         id: newUser._id,
@@ -67,7 +67,7 @@ router.post('/register', async (req, res) => {
     console.error('Registration error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during registration'
+      message: 'Kayıt sırasında sunucu hatası'
     });
   }
 });
@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email and password are required'
+        message: 'E-posta ve şifre gerekli'
       });
     }
 
@@ -87,7 +87,7 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'Kullanıcı bulunamadı'
       });
     }
 
@@ -95,7 +95,7 @@ router.post('/login', async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Geçersiz kimlik bilgileri'
       });
     }
 
@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Login successful',
+      message: 'Giriş başarılı',
       token,
       user: {
         id: user._id,
@@ -123,7 +123,7 @@ router.post('/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during login'
+      message: 'Giriş sırasında sunucu hatası'
     });
   }
 });
@@ -153,7 +153,7 @@ router.post('/level-test', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Level test completed successfully',
+      message: 'Seviye testi başarıyla tamamlandı',
       result: {
         score,
         level: user.level,
@@ -165,12 +165,11 @@ router.post('/level-test', async (req, res) => {
     console.error('Level test error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during level test'
+      message: 'Seviye testi sırasında sunucu hatası'
     });
   }
 });
 
-// Level test questions (simple static for now)
 const LEVEL_TEST_QUESTIONS = [
   { id: 1, q: 'Choose correct: I ___ a book now.', a: ['read','am read','am reading','reading'], correct: 2, weight: { A1:1, A2:1, B1:0 } },
   { id: 2, q: 'Past form of "go"?', a: ['goed','went','goes','gone'], correct: 1, weight: { A1:1, A2:1, B1:1 } },
@@ -185,7 +184,7 @@ router.get('/level-test/questions', (req,res) => {
 
 router.post('/level-test/submit', async (req,res) => {
   try {
-    const { answers, userId } = req.body; // answers: [{id, answerIndex}]
+    const { answers, userId } = req.body; 
     if (!Array.isArray(answers) || !userId) return res.status(400).json({ success:false, message:'answers and userId required' });
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success:false, message:'User not found' });
@@ -200,7 +199,6 @@ router.post('/level-test/submit', async (req,res) => {
         scoreB1 += q.weight.B1;
       }
     });
-    // Determine level by highest weighted score
     const scores = { A1: scoreA1, A2: scoreA2, B1: scoreB1 };
     const level = Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0];
     user.level = level;
@@ -210,7 +208,7 @@ router.post('/level-test/submit', async (req,res) => {
     res.json({ success:true, level, scores });
   } catch (e) {
     console.error('Level test submit error', e);
-    res.status(500).json({ success:false, message:'Level test submit failed' });
+    res.status(500).json({ success:false, message:'Seviye testi gönderilemedi' });
   }
 });
 

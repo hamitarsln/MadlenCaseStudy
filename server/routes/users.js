@@ -16,7 +16,6 @@ function auth(req, res, next) {
   }
 }
 
-// Current authenticated user with adaptive learning fields
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -261,6 +260,8 @@ router.get('/:id/progress/summary', auth, async (req, res) => {
       summary: {
         level: user.level,
         dynamicLevel: user.dynamicLevel,
+        levelBuffer: user.levelBuffer,
+        skillScores: user.skillScores,
         levelConfirmed: user.levelConfirmed,
         progress: user.progress,
         counts: {

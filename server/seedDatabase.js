@@ -76,12 +76,10 @@ async function seedDatabase() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    // Clear existing data
     console.log('Clearing existing data...');
     await User.deleteMany({});
     await Word.deleteMany({});
 
-    // Seed words
     console.log('Seeding words...');
     for (const wordData of sampleWords) {
       const word = new Word(wordData);
@@ -89,7 +87,6 @@ async function seedDatabase() {
     }
     console.log(`Seeded ${sampleWords.length} words`);
 
-    // Seed users
     console.log('Seeding users...');
     for (const userData of sampleUsers) {
       const user = new User(userData);

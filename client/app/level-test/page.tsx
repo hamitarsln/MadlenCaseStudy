@@ -36,11 +36,11 @@ export default function LevelTestPage() {
       toast.success(`Seviyen: ${data.level}`);
       router.push('/dashboard');
     } catch(e:any){
-      toast.error(e.message || 'Test hatası');
+      toast.error(e.message || 'Test hatası oluştu');
     } finally { setLoading(false); }
   }
 
-  if(!user) return <div className="p-10">Giriş yap.</div>;
+  if(!user) return <div className="p-10">Lütfen giriş yapın.</div>;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16 space-y-8">

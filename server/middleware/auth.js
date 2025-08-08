@@ -6,7 +6,7 @@ function authenticateToken(req, res, next) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ 
       success: false, 
-      message: 'Access token required' 
+      message: 'Erişim token\'i gerekli' 
     });
   }
   
@@ -20,17 +20,17 @@ function authenticateToken(req, res, next) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ 
         success: false, 
-        message: 'Token expired' 
+        message: 'Token süresi dolmuş' 
       });
     } else if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid token' 
+        message: 'Geçersiz token' 
       });
     } else {
       return res.status(500).json({ 
         success: false, 
-        message: 'Token verification failed' 
+        message: 'Token doğrulaması başarısız' 
       });
     }
   }
@@ -40,7 +40,7 @@ function requireAdmin(req, res, next) {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Admin access required' 
+      message: 'Yönetici erişimi gerekli' 
     });
   }
   next();
@@ -52,7 +52,7 @@ function requireOwnership(req, res, next) {
   if (req.user.id !== userId && req.user.role !== 'admin') {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied: You can only access your own data' 
+      message: 'Erişim reddedildi: Sadece kendi verilerinize erişebilirsiniz' 
     });
   }
   next();

@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Word = require('../models/Word');
 const User = require('../models/User');
-const mongoose = require('mongoose'); // added for ObjectId in learning queue
+const mongoose = require('mongoose'); 
 
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -15,14 +15,11 @@ function auth(req, res, next) {
 }
 function admin(req, res, next) { if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' }); next(); }
 
-// LEARNING HUB ENDPOINTS
-// Get study queue (due reviews + new suggestions)
 router.get('/learning/queue', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('wordsLearned.wordId');
     if (!user) return res.status(404).json({ success:false, message:'User not found' });
 
-    // Due review entries
     const dueEntries = typeof user.getDueWordEntries === 'function' ? user.getDueWordEntries(50) : [];
     const now = Date.now();
     const dueWords = dueEntries.filter(e => e.wordId).map(e => ({
@@ -41,14 +38,12 @@ router.get('/learning/queue', auth, async (req, res) => {
     const targetQueueSize = 15;
     let remaining = Math.max(0, targetQueueSize - dueWords.length);
 
-    // Collect new candidate words (not yet learned) with a simple find instead of aggregate
     let newWords = [];
     if (remaining > 0) {
       const learnedIds = new Set(user.wordsLearned.map(w => w.wordId && w.wordId._id ? w.wordId._id.toString() : ''));
       const level = user.level || user.dynamicLevel || 'A1';
       const candidates = await Word.find({ level, isActive: true }).limit(200).lean();
       const filtered = candidates.filter(c => !learnedIds.has(c._id.toString()));
-      // Shuffle
       for (let i = filtered.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
@@ -79,7 +74,6 @@ router.get('/learning/queue', auth, async (req, res) => {
   }
 });
 
-// Mark new word as started/learned (adds to user words)
 router.post('/learning/start', auth, async (req, res) => {
   try {
     const { wordId } = req.body;
@@ -99,7 +93,6 @@ router.post('/learning/start', auth, async (req, res) => {
   }
 });
 
-// Review a word (spaced repetition update)
 router.post('/learning/review', auth, async (req, res) => {
   try {
     const { wordId, correct } = req.body;
@@ -120,8 +113,6 @@ router.post('/learning/review', auth, async (req, res) => {
     res.status(500).json({ success:false, message:'Cannot review word' });
   }
 });
-
-// Recommendations (words close to mastery threshold or same category)
 router.get('/learning/recommendations', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('wordsLearned.wordId');

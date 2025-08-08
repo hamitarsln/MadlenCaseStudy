@@ -41,14 +41,14 @@ export function AuthForm() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Auth failed');
       session.setSession(data.token, data.user);
-      toast.success(mode === 'login' ? 'Welcome back!' : 'Account created');
+      toast.success(mode === 'login' ? 'Hoş geldin!' : 'Hesap oluşturuldu');
       if (data.requiresLevelTest) {
         router.push('/level-test');
       } else {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      toast.error(err.message || 'Hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -57,24 +57,24 @@ export function AuthForm() {
   return (
     <form onSubmit={submit} className="space-y-5 fade-in">
       <div className="flex gap-2 text-sm font-medium" role="tablist" aria-label="Auth tabs">
-        <button type="button" aria-selected={mode==='login'} role="tab" onClick={() => setMode('login')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='login'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Login</button>
-        <button type="button" aria-selected={mode==='register'} role="tab" onClick={() => setMode('register')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='register'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Register</button>
+        <button type="button" aria-selected={mode==='login'} role="tab" onClick={() => setMode('login')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='login'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Giriş Yap</button>
+        <button type="button" aria-selected={mode==='register'} role="tab" onClick={() => setMode('register')} className={`flex-1 py-2 rounded-md font-semibold transition outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 focus:ring-offset-white/10 ${mode==='register'?'bg-primary text-neutral-900 shadow-sm':'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-black/40 dark:text-white/70 dark:hover:bg-black/60'}`}>Kayıt Ol</button>
       </div>
       {mode === 'register' && (
         <div className="space-y-1">
-          <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="name">Name</label>
+          <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="name">Ad Soyad</label>
           <input id="name" name="name" value={form.name} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/910 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
         </div>
       )}
       <div className="space-y-1">
-        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="email">Email</label>
+        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="email">E-posta</label>
         <input id="email" name="email" type="email" value={form.email} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="password">Password</label>
+        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="password">Şifre</label>
         <input id="password" name="password" type="password" value={form.password} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
-      <button disabled={loading} className="w-full h-11 rounded-md font-semibold tracking-wide bg-primary text-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(0,0,0,0.25),0_0_20px_-2px_rgba(255,196,0,0.6)] hover:brightness-105 transition focus:outline-none focus:ring-2 focus:ring-primary/50">{loading ? '...' : (mode === 'login' ? 'Login' : 'Create Account')}</button>
+      <button disabled={loading} className="w-full h-11 rounded-md font-semibold tracking-wide bg-primary text-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(0,0,0,0.25),0_0_20px_-2px_rgba(255,196,0,0.6)] hover:brightness-105 transition focus:outline-none focus:ring-2 focus:ring-primary/50">{loading ? '...' : (mode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur')}</button>
     </form>
   );
 }

@@ -41,3 +41,49 @@ body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--
 /* Animate in */
 .fade-in { animation: fadeIn .6s ease both; }
 @keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+
+/* Prose styling for AI messages */
+.prose { 
+  @apply text-sm;
+}
+.prose p { @apply mb-3; }
+.prose strong { @apply font-semibold text-primary/90; }
+.prose em { @apply italic text-white/80; }
+.prose ul { @apply list-disc list-inside mb-3 space-y-1; }
+.prose li { @apply text-white/90; }
+.prose code { @apply bg-black/20 px-1 py-0.5 rounded text-xs font-mono text-primary; }
+
+/* AI message advanced formatting */
+.ai-message {
+  @apply text-neutral-200;
+}
+
+.ai-message strong {
+  @apply text-primary font-semibold bg-primary/10 px-1 rounded;
+}
+
+.ai-message em {
+  @apply text-slate-300 italic;
+}
+
+.ai-message code {
+  @apply bg-slate-700 text-yellow-300 px-1.5 py-0.5 rounded text-sm;
+}
+
+/* JSON analiz bloğu stilleri */
+.json-analysis {
+  @apply my-3 p-3 bg-slate-800 dark:bg-slate-900 rounded-md border border-slate-600;
+}
+
+.json-analysis-title {
+  @apply text-xs text-slate-400 mb-2;
+}
+
+.json-analysis-content {
+  @apply text-xs text-green-400 overflow-x-auto;
+}
+
+/* Öğrenilen kelime vurgulama */
+.learned-word {
+  @apply text-primary font-semibold bg-primary/20 px-1.5 py-0.5 rounded transition-colors hover:bg-primary/30 cursor-default;
+}

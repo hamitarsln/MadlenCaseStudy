@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 
 interface LearnedWord { id:string; word:string; meaning:string; level:string; mastery:number; learnedAt:string; }
 interface Structure { key:string; count:number; lastSeen:string; }
-interface Summary { level:string; dynamicLevel:string; levelConfirmed:boolean; progress:any; counts:{ totalLearned:number; structures:number }; structures:Structure[]; words:LearnedWord[] }
+interface Summary { level:string; dynamicLevel:string; levelConfirmed:boolean; progress:any; counts:{ totalLearned:number; structures:number }; structures:Structure[]; words:LearnedWord[]; levelBuffer?:number; skillScores?: { vocab:number; grammar:number; fluency:number; consistency:number; } }
 
 export default function ProgressPage(){
   const { user, hydrated } = useSessionStore();
@@ -23,7 +23,6 @@ export default function ProgressPage(){
     fetch(`${apiBase}/api/users/${user.id}/progress/summary`, { headers: authHeader() as any })
       .then(async r => {
         if (r.status === 404) {
-          // User no longer exists (likely DB reset / seed). Clear session.
             useSessionStore.getState().clear();
             toast.error('Oturum bulunamadı. Lütfen tekrar giriş yap.');
             router.push('/');
@@ -61,11 +60,48 @@ export default function ProgressPage(){
               <div className='text-xs flex flex-col gap-1'>
                 <div>Başlangıç Level: <span className='text-primary font-medium'>{summary.level}</span></div>
                 <div>Dinamik Level: <span className='text-primary font-medium'>{summary.dynamicLevel}</span></div>
+                {summary.levelBuffer !== undefined && (
+                  <div className="mt-2 p-2 bg-black/30 rounded border border-white/10">
+                    <div className="flex items-center justify-between text-[10px] mb-1">
+                      <span>Buffer İlerlemesi</span>
+                      <span className="text-primary">{summary.levelBuffer}/10</span>
+                    </div>
+                    <div className="w-full bg-black/50 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all ${summary.levelBuffer >= 0 ? 'bg-primary' : 'bg-red-500'}`}
+                        style={{ width: `${Math.max(0, Math.min(100, (Math.abs(summary.levelBuffer) / 10) * 100))}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
                 <div>Öğrenilen Kelime: {summary.counts.totalLearned}</div>
                 <div>Yapı Çeşidi: {summary.counts.structures}</div>
                 <div>Toplam Mesaj: {summary.progress.totalChatMessages}</div>
               </div>
             </Card>
+            {summary.skillScores && (
+              <Card className='p-5 space-y-3'>
+                <h2 className='font-semibold text-sm'>Beceri Puanları</h2>
+                <div className='space-y-2 text-xs'>
+                  <div className="flex justify-between">
+                    <span>Kelime:</span>
+                    <span className="text-primary">{summary.skillScores.vocab.toFixed(1)}/5</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Dilbilgisi:</span>
+                    <span className="text-primary">{summary.skillScores.grammar.toFixed(1)}/5</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Akıcılık:</span>
+                    <span className="text-primary">{summary.skillScores.fluency.toFixed(1)}/5</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tutarlılık:</span>
+                    <span className="text-primary">{summary.skillScores.consistency.toFixed(1)}/5</span>
+                  </div>
+                </div>
+              </Card>
+            )}
             <Card className='p-5 space-y-3'>
               <h2 className='font-semibold text-sm'>Yapılar</h2>
               <div className='space-y-2 max-h-72 overflow-auto pr-2'>
