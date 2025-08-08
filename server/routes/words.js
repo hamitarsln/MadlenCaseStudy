@@ -202,7 +202,6 @@ router.delete('/:id', auth, admin, async (req, res) => {
   }
 });
 
-// Admin list all words with pagination
 router.get('/admin/all', auth, admin, async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;

@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 10px;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 6px; border: 2px solid #111; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
+
+/* Fancy focus outline */
+:focus-visible { outline: 2px solid #FFC300; outline-offset: 2px; }
+
+/* Gradient text helper */
+.gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-yellow-200 to-primary-500; }
+
+/* Card glass effect */
+.glass { @apply bg-white/5 backdrop-blur-md border border-white/10 shadow-glow; }
+
+/* Button base */
+.btn { @apply inline-flex items-center justify-center rounded-md font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
+.btn-primary { @apply btn bg-primary text-dark hover:bg-primary-400 shadow-neon; }
+.btn-outline { @apply btn border border-primary/60 hover:border-primary bg-black/30 hover:bg-black/50 text-primary; }
+
+/* Animate in */
+.fade-in { animation: fadeIn .6s ease both; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }

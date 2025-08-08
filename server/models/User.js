@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
     enum: ['A1', 'A2', 'B1'],
     default: 'A1'
   },
+  dynamicLevel: {
+    type: String,
+    enum: ['A1', 'A2', 'B1'],
+    default: 'A1'
+  },
   levelTestScore: {
     type: Number,
     default: 0,
@@ -70,6 +75,17 @@ const userSchema = new mongoose.Schema({
       default: 1
     }
   }],
+  learnedStructures: [{
+    key: String, 
+    count: {
+      type: Number,
+      default: 0
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   chatHistory: [{
     message: String,
     isUser: Boolean,
@@ -81,7 +97,9 @@ const userSchema = new mongoose.Schema({
   lastActive: {
     type: Date,
     default: Date.now
-  }
+  },
+  levelConfirmed: { type: Boolean, default: false },
+  autoPromote: { type: Boolean, default: true }
 }, {
   timestamps: true
 });
@@ -114,6 +132,34 @@ userSchema.methods.isDailyGoalMet = function() {
   );
   
   return todayWords.length >= this.progress.dailyGoal;
+};
+
+userSchema.methods.promoteIfEligible = function() {
+  if (!this.autoPromote) return false;
+  const order = ['A1','A2','B1'];
+  const currentIndex = order.indexOf(this.level);
+  const dynamicIndex = order.indexOf(this.dynamicLevel);
+  if (dynamicIndex > currentIndex) {
+    // Basic guard: require minimum learned words & structures thresholds before promotion
+    const learnedCount = this.wordsLearned.length;
+    const structCount = this.learnedStructures.length;
+    const thresholds = { A1: { words: 30, structs: 8 }, A2: { words: 80, structs: 18 } };
+    const needed = this.level === 'A1' ? thresholds.A1 : thresholds.A2;
+    if (learnedCount >= needed.words && structCount >= needed.structs) {
+      this.level = this.dynamicLevel;
+      return true;
+    }
+  }
+  return false;
+};
+
+userSchema.methods.updateDynamicLevel = function() {
+  const total = this.learnedStructures.reduce((a,s)=>a+s.count,0);
+  const variety = this.learnedStructures.length;
+  if (variety > 25 && total > 120) this.dynamicLevel = 'B1';
+  else if (variety > 10 && total > 40) this.dynamicLevel = 'A2';
+  else this.dynamicLevel = 'A1';
+  this.promoteIfEligible();
 };
 
 module.exports = mongoose.model('User', userSchema);

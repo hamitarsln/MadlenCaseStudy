@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Auth middleware
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,9 +21,55 @@ function auth(req, res, next) {
   }
 }
 
+router.get('/channels', auth, async (req, res) => {
+  try {
+    const chats = await Chat.find({ userId: req.user.id })
+      .sort({ updatedAt: -1 })
+      .select('title updatedAt createdAt');
+    res.json({ success: true, channels: chats });
+  } catch (e) {
+    console.error('List channels error', e);
+    res.status(500).json({ success: false, message: 'Cannot list channels' });
+  }
+});
+
+router.post('/channels', auth, async (req, res) => {
+  try {
+    const { title } = req.body;
+    const chat = await Chat.create({ userId: req.user.id, title: title?.trim() || 'New Chat', messages: [] });
+    res.status(201).json({ success: true, channel: { id: chat._id, title: chat.title } });
+  } catch (e) {
+    console.error('Create channel error', e);
+    res.status(500).json({ success: false, message: 'Cannot create channel' });
+  }
+});
+
+router.delete('/channels/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Chat.findOneAndDelete({ _id: id, userId: req.user.id });
+    if (!deleted) return res.status(404).json({ success: false, message: 'Channel not found' });
+    res.json({ success: true, message: 'Channel deleted' });
+  } catch (e) {
+    console.error('Delete channel error', e);
+    res.status(500).json({ success: false, message: 'Cannot delete channel' });
+  }
+});
+
+router.get('/channels/:id', auth, async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!chat) return res.status(404).json({ success: false, message: 'Channel not found' });
+    res.json({ success: true, channel: { id: chat._id, title: chat.title, messages: chat.messages } });
+  } catch (e) {
+    console.error('Get channel error', e);
+    res.status(500).json({ success: false, message: 'Cannot get channel' });
+  }
+});
+
 router.post('/', auth, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, channelId } = req.body;
     const userId = req.user.id;
 
     if (!message) {
@@ -36,13 +81,17 @@ router.post('/', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const systemPrompt = createPersonalizedPrompt(user);
-
-    // Build last 10 messages from Chat collection if exists
-    let chatDoc = await Chat.findOne({ userId });
-    if (!chatDoc) {
-      chatDoc = await Chat.create({ userId, messages: [] });
+    let chatDoc;
+    if (channelId) {
+      chatDoc = await Chat.findOne({ _id: channelId, userId });
+      if (!chatDoc) {
+        return res.status(404).json({ success: false, message: 'Channel not found' });
+      }
+    } else {
+      chatDoc = await Chat.create({ userId, messages: [], title: 'New Chat' });
     }
+
+    const systemPrompt = createPersonalizedPrompt(user);
 
     const historyForAI = chatDoc.messages.slice(-10).map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.message }));
 
@@ -57,7 +106,11 @@ router.post('/', auth, async (req, res) => {
     if (!process.env.OPENROUTER_API_KEY) {
       aiResponse = generateMockResponse(message, user.level);
       await persistChat(user, chatDoc, message, aiResponse);
-      return res.json({ success: true, response: aiResponse, isDemo: true });
+      if (chatDoc.title === 'New Chat') {
+        chatDoc.title = message.substring(0, 40) + (message.length > 40 ? '…' : '');
+        await chatDoc.save();
+      }
+      return res.json({ success: true, response: aiResponse, channelId: chatDoc._id, title: chatDoc.title, isDemo: true });
     }
 
     const openRouterResponse = await fetch(OPENROUTER_API_URL, {
@@ -69,7 +122,7 @@ router.post('/', auth, async (req, res) => {
         'X-Title': 'Madlen English Learning App'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1-0325:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages,
         max_tokens: 300,
         temperature: 0.7
@@ -86,7 +139,14 @@ router.post('/', auth, async (req, res) => {
 
     await persistChat(user, chatDoc, message, aiResponse);
 
-    res.json({ success: true, response: aiResponse, usage: data.usage });
+    if (chatDoc.title === 'New Chat') {
+      chatDoc.title = message.substring(0, 40) + (message.length > 40 ? '…' : '');
+      await chatDoc.save();
+    }
+
+    await extractAndStoreLearned(user, aiResponse);
+
+    return res.json({ success: true, response: aiResponse, usage: data.usage, channelId: chatDoc._id, title: chatDoc.title, level: user.level, dynamicLevel: user.dynamicLevel });
 
   } catch (error) {
     console.error('Chat error:', error);
@@ -123,6 +183,42 @@ function generateMockResponse(message, level) {
     B1: 'Good explanation. Could you expand with an example? New word: "approach" (a way of doing something).'
   };
   return templates[level] || templates.A1;
+}
+
+async function extractAndStoreLearned(user, aiResponse) {
+  try {
+    const regex = /\*new\*\s*([a-zA-Z'-]{2,})/g; 
+    const found = new Set();
+    let match;
+    while ((match = regex.exec(aiResponse)) !== null) {
+      found.add(match[1].toLowerCase());
+    }
+    if (found.size === 0) return;
+    const Word = require('../models/Word');
+    const words = await Word.find({ word: { $in: Array.from(found) } });
+    for (const w of words) {
+      if (!user.wordsLearned.find(x => x.wordId.toString() === w._id.toString())) {
+        user.wordsLearned.push({ wordId: w._id, mastery: 1 });
+        user.progress.wordsLearned += 1;
+      }
+    }
+    const structureMap = [
+      { key: 'past_simple', pattern: /\b(did|was|were)\b/i },
+      { key: 'future_will', pattern: /\bwill\b/i },
+      { key: 'present_perfect', pattern: /\b(has|have)\s+\w+ed\b/i }
+    ];
+    structureMap.forEach(s => {
+      if (s.pattern.test(aiResponse)) {
+        const existing = user.learnedStructures.find(ls => ls.key === s.key);
+        if (existing) { existing.count += 1; existing.lastSeen = new Date(); }
+        else user.learnedStructures.push({ key: s.key, count: 1 });
+      }
+    });
+    user.updateDynamicLevel && user.updateDynamicLevel();
+    await user.save();
+  } catch (e) {
+    console.error('extractAndStoreLearned error', e);
+  }
 }
 
 module.exports = router;

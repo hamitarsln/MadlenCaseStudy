@@ -38,9 +38,11 @@ router.get('/:id', auth, async (req, res) => {
         name: user.name,
         email: user.email,
         level: user.level,
+        dynamicLevel: user.dynamicLevel,
         levelTestScore: user.levelTestScore,
         progress: user.progress,
         wordsLearned: user.wordsLearned,
+        learnedStructures: user.learnedStructures,
         lastActive: user.lastActive,
         isDailyGoalMet: user.isDailyGoalMet()
       }
@@ -223,6 +225,35 @@ router.get('/:id/chat-history', auth, async (req, res) => {
       success: false,
       message: 'Server error while fetching chat history'
     });
+  }
+});
+
+router.get('/:id/progress/summary', auth, async (req, res) => {
+  if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+  try {
+    const user = await User.findById(req.params.id).populate('wordsLearned.wordId','word meaning level');
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    const learnedWords = user.wordsLearned.map(w => ({ id: w.wordId?._id, word: w.wordId?.word, level: w.wordId?.level, mastery: w.mastery, meaning: w.wordId?.meaning, learnedAt: w.learnedAt }));
+    res.json({
+      success:true,
+      summary: {
+        level: user.level,
+        dynamicLevel: user.dynamicLevel,
+        levelConfirmed: user.levelConfirmed,
+        progress: user.progress,
+        counts: {
+          totalLearned: learnedWords.length,
+          structures: user.learnedStructures.length
+        },
+        structures: user.learnedStructures,
+        words: learnedWords
+      }
+    });
+  } catch (e) {
+    console.error('Progress summary error', e);
+    res.status(500).json({ success:false, message:'Cannot fetch progress summary' });
   }
 });
 

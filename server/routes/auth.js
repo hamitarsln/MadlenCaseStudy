@@ -3,7 +3,6 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Helper to generate JWT
 function generateToken(user) {
   return jwt.sign(
     { id: user._id, email: user.email, role: user.role },
@@ -41,7 +40,8 @@ router.post('/register', async (req, res) => {
     const newUser = new User({
       email: email.toLowerCase(),
       name: name.trim(),
-      password
+      password,
+      levelConfirmed: false // will be set after test
     });
 
     await newUser.save();
@@ -50,15 +50,17 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'User registered, level test required',
       token,
       user: {
         id: newUser._id,
         name: newUser.name,
         email: newUser.email,
         level: newUser.level,
-        role: newUser.role
-      }
+        role: newUser.role,
+        levelConfirmed: newUser.levelConfirmed
+      },
+      requiresLevelTest: true
     });
 
   } catch (error) {
@@ -165,6 +167,50 @@ router.post('/level-test', async (req, res) => {
       success: false,
       message: 'Server error during level test'
     });
+  }
+});
+
+// Level test questions (simple static for now)
+const LEVEL_TEST_QUESTIONS = [
+  { id: 1, q: 'Choose correct: I ___ a book now.', a: ['read','am read','am reading','reading'], correct: 2, weight: { A1:1, A2:1, B1:0 } },
+  { id: 2, q: 'Past form of "go"?', a: ['goed','went','goes','gone'], correct: 1, weight: { A1:1, A2:1, B1:1 } },
+  { id: 3, q: 'Meaning of "improve"?', a: ['to make better','to remove','to buy','to delay'], correct: 0, weight: { A1:0, A2:1, B1:1 } },
+  { id: 4, q: 'Choose correct: If I ___ time, I will help.', a: ['will have','have','had','am having'], correct: 1, weight: { A1:0, A2:1, B1:1 } },
+  { id: 5, q: 'Synonym of "method"?', a: ['device','way','error','line'], correct: 1, weight: { A1:0, A2:0, B1:1 } }
+];
+
+router.get('/level-test/questions', (req,res) => {
+  res.json({ success:true, questions: LEVEL_TEST_QUESTIONS.map(({correct, weight, ...rest})=>rest) });
+});
+
+router.post('/level-test/submit', async (req,res) => {
+  try {
+    const { answers, userId } = req.body; // answers: [{id, answerIndex}]
+    if (!Array.isArray(answers) || !userId) return res.status(400).json({ success:false, message:'answers and userId required' });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    let scoreA1=0, scoreA2=0, scoreB1=0, total=0;
+    answers.forEach(ans => {
+      const q = LEVEL_TEST_QUESTIONS.find(x=>x.id===ans.id);
+      if (!q) return;
+      total++;
+      if (q.correct === ans.answerIndex) {
+        scoreA1 += q.weight.A1;
+        scoreA2 += q.weight.A2;
+        scoreB1 += q.weight.B1;
+      }
+    });
+    // Determine level by highest weighted score
+    const scores = { A1: scoreA1, A2: scoreA2, B1: scoreB1 };
+    const level = Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0];
+    user.level = level;
+    user.levelConfirmed = true;
+    user.levelTestScore = Math.max(scoreA1, scoreA2, scoreB1);
+    await user.save();
+    res.json({ success:true, level, scores });
+  } catch (e) {
+    console.error('Level test submit error', e);
+    res.status(500).json({ success:false, message:'Level test submit failed' });
   }
 });
 

@@ -2,9 +2,7 @@ const mongoose = require('mongoose');
 const Word = require('./models/Word');
 require('dotenv').config();
 
-// Sample words data for different levels
 const sampleWords = [
-  // A1 Level Words
   {
     word: 'hello',
     meaning: 'A greeting used when meeting someone',
@@ -71,7 +69,6 @@ const sampleWords = [
     frequency: 82
   },
 
-  // A2 Level Words
   {
     word: 'important',
     meaning: 'Having great significance or value',
@@ -138,7 +135,6 @@ const sampleWords = [
     frequency: 76
   },
 
-  // B1 Level Words
   {
     word: 'achievement',
     meaning: 'Something accomplished successfully',
@@ -206,26 +202,20 @@ const sampleWords = [
   }
 ];
 
-// Connect to MongoDB and seed data
 async function seedDatabase() {
   try {
-    // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     console.log('✅ Connected to MongoDB');
-
-    // Clear existing words (optional - comment out if you want to keep existing data)
     await Word.deleteMany({});
     console.log('🗑️ Cleared existing words');
 
-    // Insert sample words
     await Word.insertMany(sampleWords);
     console.log(`✅ Successfully inserted ${sampleWords.length} sample words`);
 
-    // Show statistics
     const stats = await Word.aggregate([
       { $group: { _id: '$level', count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
@@ -245,7 +235,6 @@ async function seedDatabase() {
   }
 }
 
-// Run the seeding function
 if (require.main === module) {
   seedDatabase();
 }
