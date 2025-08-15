@@ -5,10 +5,11 @@ import { Heading, Card, useTheme } from '../../components/theme-provider';
 import { LoadingSpinner, PageLoader } from '../../components/loading';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2, TrendingUp, PieChart, Menu, X as Close } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2, TrendingUp, PieChart, Menu, X as Close, Gauge } from 'lucide-react';
 import Link from 'next/link';
 import { MessageFormatter } from '../../components/message-formatter';
 import { DailyGoalsForm } from '../../components/daily-goals-form';
+import { RadialMeter } from '../../components/ui/radial-meter';
 
 interface ChatMsg { message: string; isUser: boolean; timestamp?: string; }
 interface Word { _id: string; word: string; meaning: string; translation: string; level: string; }
@@ -273,42 +274,66 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <header className="flex flex-col md:flex-row gap-6 md:items-end justify-between mb-8">
-        <div>
-          <Heading className="mb-2">Merhaba, {user.name.split(' ')[0]}</Heading>
-          <p className="text-white/60 text-sm">Seviye: <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-2 text-xs text-white/40">(Dinamik: {user.dynamicLevel})</span>}</p>
-          <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-white/50">
-            {adaptiveStatus.buffer !== undefined && (
-              <span>Buffer: <span className={adaptiveStatus.buffer >= 0 ? 'text-primary' : 'text-red-400'}>{adaptiveStatus.buffer.toFixed(1)}/10</span></span>
-            )}
-            <div className="flex items-center gap-1"><span className="uppercase tracking-wide">Buffer</span>
-              <span className="relative w-32 h-2 bg-white/10 rounded overflow-hidden">
-                <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${Math.min(100, Math.max(0, ((adaptiveStatus.buffer||0)+10)/20*100))}%` }} />
-              </span>
-              <span className="text-primary/80 font-semibold">{adaptiveStatus.buffer.toFixed(1)}</span>
-            </div>
-            <div className="flex items-center gap-1"><span>Hedef Yapı:</span><span className="text-primary font-medium">{adaptiveStatus.target}</span></div>
-            {daily && (
-              <div className="flex items-center gap-2 bg-black/30 border border-white/10 px-2 py-1 rounded">
-                <span className="text-[9px] uppercase tracking-wide text-white/40">Günlük</span>
-                <span className="text-[10px]">{daily.progress.messages}/{daily.goals.messages} msg • {daily.progress.words}/{daily.goals.words} kelime</span>
-                <span className="text-[10px] text-primary">🔥 {daily.streak}</span>
+      <header className="mb-10">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div>
+            <Heading className="mb-2">Merhaba, {user.name.split(' ')[0]}</Heading>
+            <p className="text-white/60 text-sm">Seviye: <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-2 text-xs text-white/40">(Dinamik: {user.dynamicLevel})</span>}</p>
+            <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-white/50 items-center">
+              <div className="flex items-center gap-1 bg-black/30 border border-white/10 px-2 py-1 rounded">
+                <Gauge size={12} className="text-primary" />
+                <span className="uppercase tracking-wide">Buffer</span>
+                <span className={adaptiveStatus.buffer >= 0 ? 'text-primary font-semibold' : 'text-red-400 font-semibold'}>{adaptiveStatus.buffer.toFixed(1)}</span>
+                <span className="text-white/30">/10</span>
               </div>
-            )}
+              <div className="flex items-center gap-1 bg-black/30 border border-white/10 px-2 py-1 rounded">
+                <span className="text-white/40">Hedef</span>
+                <span className="text-primary font-medium">{adaptiveStatus.target}</span>
+              </div>
+              {daily && (
+                <div className="flex items-center gap-2 bg-black/30 border border-white/10 px-2 py-1 rounded">
+                  <span className="text-[9px] uppercase tracking-wide text-white/40">Günlük</span>
+                  <span className="text-[10px]">{daily.progress.messages}/{daily.goals.messages} msg • {daily.progress.words}/{daily.goals.words} kelime</span>
+                  <span className="text-[10px] text-primary">🔥 {daily.streak}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full md:w-auto text-center min-w-[280px]">
-          <Stat icon={<BookOpen size={16} />} label="Kelimeler" value={user.progress?.wordsLearned ?? 0} />
-          <Stat icon={<TrendingUp size={16} />} label="Son Gramer" value={Number(lastMetric.grammar||0).toFixed(1) as any} />
-          <Stat icon={<BarChart3 size={16} />} label="Sohbet" value={user.progress?.totalChatMessages ?? 0} />
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <HeroDial
+              label="Gramer"
+              value={Number(lastMetric.grammar||0)/10}
+              raw={Number(lastMetric.grammar||0)}
+              colors={['#ec4899','#f9a8d4']}
+            />
+            <HeroDial
+              label="Kelime"
+              value={Number(lastMetric.vocab||0)/10}
+              raw={Number(lastMetric.vocab||0)}
+              colors={['#f59e0b','#fde68a']}
+            />
+            <HeroDial
+              label="Akıcılık"
+              value={Number(lastMetric.fluency||0)/10}
+              raw={Number(lastMetric.fluency||0)}
+              colors={['#10b981','#6ee7b7']}
+            />
+            <HeroDial
+              label="Buffer"
+              value={Math.min(1, Math.max(0, (adaptiveStatus.buffer+10)/20))}
+              raw={adaptiveStatus.buffer}
+              colors={['#6366f1','#a5b4fc']}
+              suffix=""
+            />
+          </div>
         </div>
       </header>
 
-      {/* Adaptive Skill Metrics */}
-      <section className="grid md:grid-cols-3 gap-6 mb-10">
-        <SkillCard title="Gramer" series={grammarSeries} current={lastMetric.grammar} accent="from-pink-500/60 to-pink-400/30" />
-        <SkillCard title="Kelime" series={vocabSeries} current={lastMetric.vocab} accent="from-amber-500/60 to-amber-400/30" />
-        <SkillCard title="Akıcılık" series={fluencySeries} current={lastMetric.fluency} accent="from-emerald-500/60 to-emerald-400/30" />
+      {/* Sparkline Trend Grid */}
+      <section className="grid md:grid-cols-3 gap-6 mb-12">
+        <TrendCard title="Gramer Trend" series={grammarSeries} color="#ec4899" />
+        <TrendCard title="Kelime Trend" series={vocabSeries} color="#f59e0b" />
+        <TrendCard title="Akıcılık Trend" series={fluencySeries} color="#10b981" />
       </section>
 
       {/* Word Repository Stats */}
@@ -504,24 +529,6 @@ function ProgressBar({ value, goal }: { value:number; goal:number }) {
 }
 
 // Mini skill card with sparkline
-function SkillCard({ title, series, current, accent }: { title:string; series:number[]; current:number; accent:string }) {
-  return (
-    <Card className="relative overflow-hidden">
-  <div className={`absolute inset-0 opacity-40 bg-gradient-to-br pointer-events-none mix-blend-overlay rounded-xl ${accent}`} />
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-medium text-sm">{title}</h3>
-        <span className="text-primary text-xs font-semibold">{current ? Number(current).toFixed(2): '--'}</span>
-      </div>
-      <Sparkline data={series} height={48} />
-      <div className="mt-2 flex gap-2 text-[10px] text-white/40">
-        <span>Min {series.length? Math.min(...series).toFixed(1):'-'}</span>
-        <span>Max {series.length? Math.max(...series).toFixed(1):'-'}</span>
-        <span>Ort {series.length? (series.reduce((a,b)=>a+b,0)/series.length).toFixed(1):'-'}</span>
-      </div>
-    </Card>
-  );
-}
-
 function Sparkline({ data, height=40, stroke='#22d3ee' }: { data:number[]; height?:number; stroke?:string }) {
   if (!data || data.length === 0) return <div className="h-[48px] flex items-center justify-center text-[10px] text-white/30">Veri yok</div>;
   const w = 160;
@@ -535,12 +542,53 @@ function Sparkline({ data, height=40, stroke='#22d3ee' }: { data:number[]; heigh
   }).join(' ');
   return (
     <svg viewBox={`0 0 ${w} ${height}`} className="w-full h-12 overflow-visible">
-      <polyline fill="none" stroke={stroke} strokeWidth={2} points={points} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline fill="none" stroke={stroke} strokeWidth={2} points={points} strokeLinejoin="round" strokeLinecap="round" className="drop-shadow-[0_0_4px_rgba(255,255,255,0.15)]" />
       {data.map((v,i)=> {
         const x = (i/(data.length-1))*w;
         const y = height - ((v - min)/range)*height;
         return <circle key={i} cx={x} cy={y} r={2} fill={stroke} className="opacity-70" />;
       })}
     </svg>
+  );
+}
+
+function HeroDial({ label, value, raw, colors, suffix='%' }: { label:string; value:number; raw:number; colors:[string,string]; suffix?:string }) {
+  return (
+    <div className="group relative">
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition" />
+      <RadialMeter
+        value={value}
+        label={label}
+        colorFrom={colors[0]}
+        colorTo={colors[1]}
+        size={110}
+        stroke={10}
+        precision={0}
+        suffix={suffix}
+      >
+        <span className="mt-1 text-[9px] text-white/40 font-medium">{raw.toFixed(1)}</span>
+      </RadialMeter>
+    </div>
+  );
+}
+
+function TrendCard({ title, series, color }: { title:string; series:number[]; color:string }) {
+  const min = series.length? Math.min(...series).toFixed(1) : '-';
+  const max = series.length? Math.max(...series).toFixed(1) : '-';
+  const avg = series.length? (series.reduce((a,b)=>a+b,0)/series.length).toFixed(1) : '-';
+  return (
+    <Card className="relative overflow-hidden">
+      <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-medium text-sm">{title}</h3>
+        <span className="text-xs text-white/40">{series.length}p</span>
+      </div>
+      <Sparkline data={series} height={48} stroke={color} />
+      <div className="mt-2 flex gap-3 text-[10px] text-white/40">
+        <span>Min <span className="text-white/60">{min}</span></span>
+        <span>Max <span className="text-white/60">{max}</span></span>
+        <span>Ort <span className="text-white/60">{avg}</span></span>
+      </div>
+    </Card>
   );
 }
