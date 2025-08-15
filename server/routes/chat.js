@@ -241,43 +241,19 @@ async function persistChat(user, chatDoc, userMessage, aiMessage) {
 
 function createPersonalizedPrompt(user, recentHistory = [], options = {}) {
   const { suggestedWords = [] } = options;
-  const wordsHint = suggestedWords.length ? 
-    `\n\nSUGGESTED WORDS: Try to naturally use these words: ${suggestedWords.join(', ')}. Mark them with **word** when you use them.` : '';
-
-  const levelDescriptions = {
-    A1: 'Use simple present tense, basic vocabulary. Be encouraging and patient.',
-    A2: 'Use past simple and future will. Introduce one new word per conversation naturally.',
-    B1: 'Use varied tenses and vocabulary. Encourage longer responses and explanations.'
-  };
-  
-  return `You are a casual conversation partner. Be SHORT and NATURAL.
-Level: ${user.level} (Dynamic: ${user.dynamicLevel})
-Style: ${levelDescriptions[user.dynamicLevel] || levelDescriptions[user.level]}
-
-CRITICAL RULES:
-1. ALWAYS correct grammar errors FIRST, naturally: "Oh, you mean 'I like pizza'?"  
-2. Keep response to MAXIMUM 1-2 sentences
-3. NEVER write long paragraphs or multiple topics
-4. Don't share your own stories unless directly asked
-5. Focus on THEIR message, not random topics
-6. Mark vocabulary with **word** naturally${wordsHint}
-
-EXAMPLES - FOLLOW EXACTLY:
-INPUT: "Me like pizza very much"  
-OUTPUT: "Oh, you mean 'I like pizza'? What's your favorite topping? 🍕"
-
-INPUT: "I go yesterday school"
-OUTPUT: "You mean 'I went to school yesterday'? How was it? ✨"
-
-INPUT: "She don't know"
-OUTPUT: "You mean 'She doesn't know'? About what? 👍"
-
-INPUT: "The food is good"
-OUTPUT: "Nice! You could say it's **delicious** too 😋"
-
-NEVER write more than 2 short sentences!
-
-At the end add JSON: {"grammar_score":1-5,"vocab_score":1-5,"fluency_score":1-5,"new_words":["word1","word2"]} in \`\`\`json\`\`\` tags.`;
+  const extraWords = suggestedWords.length ? `Try to (only if natural) use: ${suggestedWords.join(', ')}.` : '';
+  const fenceHint = '{"grammar_score":1-5,"vocab_score":1-5,"fluency_score":1-5,"new_words":["optional_word"]}';
+  return [
+    'Role: friendly English chat partner.',
+    `Level: ${user.level} (dynamic ${user.dynamicLevel})`,
+    'Guidelines:',
+    '- Correct mistakes lightly in a natural reply (fix first, then a short follow-up question).',
+    '- Keep it to 1–2 short sentences.',
+    '- Focus strictly on the user\'s last message.',
+    '- Optionally introduce ONE new word and mark it **like this**.',
+    extraWords,
+    'Finish with JSON metrics in a fenced code block labelled json: '+fenceHint
+  ].filter(Boolean).join('\n');
 }
 
 function generateMockResponse(message, level) {
