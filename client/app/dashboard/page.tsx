@@ -5,7 +5,7 @@ import { Heading, Card, useTheme } from '../../components/theme-provider';
 import { LoadingSpinner, PageLoader } from '../../components/loading';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2 } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2, TrendingUp, PieChart } from 'lucide-react';
 import Link from 'next/link';
 import { MessageFormatter } from '../../components/message-formatter';
 import { DailyGoalsForm } from '../../components/daily-goals-form';
@@ -26,6 +26,8 @@ export default function Dashboard() {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   const { theme, toggle } = useTheme();
   const [adaptiveStatus, setAdaptiveStatus] = useState<{buffer:number; target:string; dyn?:string}>({buffer:0,target:'present_simple'});
+  const [metricsWindow, setMetricsWindow] = useState<any[]>([]); // recent adaptive metrics history
+  const [wordStats, setWordStats] = useState<{ levels?: any[]; categories?: any[] }>({});
   const [daily,setDaily] = useState<any>(null);
   const [showGoalsEdit, setShowGoalsEdit] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
@@ -98,11 +100,29 @@ export default function Dashboard() {
             });
           }
         }
+        // debug adaptive for metrics window & sparkline
+        try {
+          const drw = await fetch(`${apiBase}/api/users/me?debug=1`, { headers: authHeader() as Record<string,string> });
+          if (drw.ok) {
+            const jd = await drw.json();
+            if (jd.success && jd.user?.debugAdaptive?.metricsWindow) {
+              setMetricsWindow(jd.user.debugAdaptive.metricsWindow);
+            }
+          }
+        } catch {}
         const dr = await fetch(`${apiBase}/api/users/me/daily`, { headers: authHeader() as Record<string,string> });
         if (dr.ok) {
           const dd = await dr.json();
           if (dd.success) setDaily(dd.daily);
         }
+        // word stats summary for dashboard mini analytics
+        try {
+          const ws = await fetch(`${apiBase}/api/words/stats/summary`);
+          if (ws.ok) {
+            const wj = await ws.json();
+            if (wj.success) setWordStats({ levels: wj.levels, categories: wj.categories });
+          }
+        } catch {}
       } catch {}
     })();
   },[user]);
@@ -202,6 +222,13 @@ export default function Dashboard() {
   if (!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
   if (pageLoading) return <PageLoader text="Pano yükleniyor..." />;
 
+  // derive sparkline arrays
+  const grammarSeries = metricsWindow.map(m=> m.grammar).filter(n=> typeof n === 'number');
+  const vocabSeries = metricsWindow.map(m=> m.vocab).filter(n=> typeof n === 'number');
+  const fluencySeries = metricsWindow.map(m=> m.fluency).filter(n=> typeof n === 'number');
+  const lastMetric = metricsWindow.slice(-1)[0] || {};
+  const levelTotals = (wordStats.levels||[]).reduce((acc:any,c:any)=> acc + (c.count||0),0);
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-16">
       {/* Navbar */}
@@ -245,10 +272,57 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 w-full md:w-auto text-center">
-          <Stat icon={<BookOpen size={18} />} label="Öğrenilen Kelime" value={user.progress?.wordsLearned ?? 0} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full md:w-auto text-center min-w-[280px]">
+          <Stat icon={<BookOpen size={16} />} label="Kelimeler" value={user.progress?.wordsLearned ?? 0} />
+          <Stat icon={<TrendingUp size={16} />} label="Son Gramer" value={Number(lastMetric.grammar||0).toFixed(1) as any} />
+          <Stat icon={<BarChart3 size={16} />} label="Sohbet" value={user.progress?.totalChatMessages ?? 0} />
         </div>
       </header>
+
+      {/* Adaptive Skill Metrics */}
+      <section className="grid md:grid-cols-3 gap-6 mb-10">
+        <SkillCard title="Gramer" series={grammarSeries} current={lastMetric.grammar} accent="from-pink-500/60 to-pink-400/30" />
+        <SkillCard title="Kelime" series={vocabSeries} current={lastMetric.vocab} accent="from-amber-500/60 to-amber-400/30" />
+        <SkillCard title="Akıcılık" series={fluencySeries} current={lastMetric.fluency} accent="from-emerald-500/60 to-emerald-400/30" />
+      </section>
+
+      {/* Word Repository Stats */}
+      {wordStats.levels && wordStats.categories && (
+        <section className="mb-12 grid lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <h2 className="font-semibold mb-4 flex items-center gap-2 text-sm"><PieChart size={16}/> Kelime Havuzu Dağılımı</h2>
+            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+              {wordStats.levels.sort((a:any,b:any)=> a.level.localeCompare(b.level)).map((l:any)=> {
+                const pct = levelTotals? (l.count/levelTotals)*100:0;
+                return (
+                  <div key={l.level} className="bg-[var(--bg-muted)]/60 dark:bg-black/40 px-3 py-3 rounded border border-[var(--border)] dark:border-white/10">
+                    <div className="flex items-center justify-between text-xs mb-1"><span className="font-medium">{l.level}</span><span className="text-white/40">{l.count}</span></div>
+                    <div className="h-2 w-full bg-black/30 rounded overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-primary/70 to-primary/40" style={{ width: pct+'%' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-[10px] uppercase tracking-wide text-white/40 mb-2">En Popüler Kategoriler</div>
+            <div className="flex flex-wrap gap-2">
+              {wordStats.categories.slice(0,10).map((c:any)=> (
+                <span key={c.category} className="text-[10px] px-2 py-1 rounded-full bg-black/40 border border-white/10 text-white/60 hover:text-primary transition">{c.category} <span className="text-primary/70">{c.count}</span></span>
+              ))}
+            </div>
+          </Card>
+          <Card>
+            <h2 className="font-semibold mb-4 text-sm">Özet</h2>
+            <ul className="space-y-2 text-[11px] text-white/60">
+              <li className="flex justify-between"><span>Toplam Aktif Kelime</span><span className="text-primary font-medium">{levelTotals}</span></li>
+              <li className="flex justify-between"><span>Son Gramer Skoru</span><span className="text-primary/80">{Number(lastMetric.grammar||0).toFixed(2)}</span></li>
+              <li className="flex justify-between"><span>Son Kelime Skoru</span><span className="text-primary/80">{Number(lastMetric.vocab||0).toFixed(2)}</span></li>
+              <li className="flex justify-between"><span>Son Akıcılık</span><span className="text-primary/80">{Number(lastMetric.fluency||0).toFixed(2)}</span></li>
+              <li className="flex justify-between"><span>Aktif Hedef Yapı</span><span className="text-primary/70">{adaptiveStatus.target}</span></li>
+            </ul>
+          </Card>
+        </section>
+      )}
 
       <div className="grid lg:grid-cols-4 gap-6">
         <Card className="lg:col-span-1 flex flex-col h-[620px] overflow-hidden">
@@ -364,5 +438,47 @@ function ProgressBar({ value, goal }: { value:number; goal:number }) {
     <div className="h-2 w-full bg-black/40 rounded overflow-hidden relative">
       <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70" style={{ width: pct+'%' }} />
     </div>
+  );
+}
+
+// Mini skill card with sparkline
+function SkillCard({ title, series, current, accent }: { title:string; series:number[]; current:number; accent:string }) {
+  return (
+    <Card className="relative overflow-hidden">
+      <div className="absolute inset-0 opacity-40 bg-gradient-to-br pointer-events-none mix-blend-overlay rounded-xl ${accent}" />
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-medium text-sm">{title}</h3>
+        <span className="text-primary text-xs font-semibold">{current ? Number(current).toFixed(2): '--'}</span>
+      </div>
+      <Sparkline data={series} height={48} />
+      <div className="mt-2 flex gap-2 text-[10px] text-white/40">
+        <span>Min {series.length? Math.min(...series).toFixed(1):'-'}</span>
+        <span>Max {series.length? Math.max(...series).toFixed(1):'-'}</span>
+        <span>Ort {series.length? (series.reduce((a,b)=>a+b,0)/series.length).toFixed(1):'-'}</span>
+      </div>
+    </Card>
+  );
+}
+
+function Sparkline({ data, height=40, stroke='#22d3ee' }: { data:number[]; height?:number; stroke?:string }) {
+  if (!data || data.length === 0) return <div className="h-[48px] flex items-center justify-center text-[10px] text-white/30">Veri yok</div>;
+  const w = 160;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = (max - min) || 1;
+  const points = data.map((v,i)=> {
+    const x = (i/(data.length-1))*w;
+    const y = height - ((v - min)/range)*height;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full h-12 overflow-visible">
+      <polyline fill="none" stroke={stroke} strokeWidth={2} points={points} strokeLinejoin="round" strokeLinecap="round" />
+      {data.map((v,i)=> {
+        const x = (i/(data.length-1))*w;
+        const y = height - ((v - min)/range)*height;
+        return <circle key={i} cx={x} cy={y} r={2} fill={stroke} className="opacity-70" />;
+      })}
+    </svg>
   );
 }

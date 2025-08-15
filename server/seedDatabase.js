@@ -5,6 +5,7 @@ require('dotenv').config();
 const User = require('./models/User');
 const Word = require('./models/Word');
 
+// Core sample words (original small set)
 const sampleWords = [
   // A1 Level
   { word: 'hello', meaning: 'a greeting', translation: 'merhaba', example: 'Hello, how are you?', exampleTranslation: 'Merhaba, nasılsın?', level: 'A1', partOfSpeech: 'interjection', category: 'daily' },
@@ -81,11 +82,24 @@ async function seedDatabase() {
     await Word.deleteMany({});
 
     console.log('Seeding words...');
+    let totalInserted = 0;
     for (const wordData of sampleWords) {
-      const word = new Word(wordData);
-      await word.save();
+      try { await new Word(wordData).save(); totalInserted++; } catch {}
     }
-    console.log(`Seeded ${sampleWords.length} words`);
+    // Attempt to load bulk file if exists
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const bulkPath = path.join(__dirname, 'data', 'words.bulk.json');
+      if (fs.existsSync(bulkPath)) {
+        const arr = JSON.parse(fs.readFileSync(bulkPath, 'utf8'));
+        for (const w of arr) {
+          try { await new Word(w).save(); totalInserted++; } catch {}
+        }
+        console.log(`Bulk words loaded: ${arr.length}`);
+      }
+    } catch (e) { console.warn('Bulk word import skipped:', e.message); }
+    console.log(`Total words inserted: ${totalInserted}`);
 
     console.log('Seeding users...');
     for (const userData of sampleUsers) {

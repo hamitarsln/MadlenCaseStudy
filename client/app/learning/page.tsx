@@ -14,6 +14,8 @@ export default function LearningHubPage(){
   const { user, hydrated } = useSessionStore();
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   const [queue,setQueue] = useState<QueueWord[]>([]);
+  const [stats,setStats] = useState<any>(null);
+  const [search,setSearch] = useState('');
   const [loading,setLoading] = useState(false);
   const [reviewing,setReviewing] = useState<QueueWord|null>(null);
   const [showAnswer,setShowAnswer] = useState(false);
@@ -35,7 +37,27 @@ export default function LearningHubPage(){
       .finally(()=> setLoading(false));
   },[user]);
 
-  useEffect(()=>{ if(hydrated && user) loadQueue(); },[hydrated,user,loadQueue]);
+  useEffect(()=>{ if(hydrated && user) { loadQueue(); fetchStats(); } },[hydrated,user,loadQueue]);
+
+  async function fetchStats(){
+    try {
+      const r = await fetch(`${apiBase}/api/words/stats/summary`);
+      if(!r.ok) return; const d = await r.json(); if(d.success) setStats(d);
+    } catch{}
+  }
+
+  async function performSearch(e:React.FormEvent){
+    e.preventDefault();
+    if(!search.trim()) { loadQueue(); return; }
+    try {
+      const r = await fetch(`${apiBase}/api/words?search=${encodeURIComponent(search)}&level=${user?.level}`);
+      const d = await r.json();
+      if(d.success){
+        const mapped = d.words.map((w:any)=> ({ id:w._id, word:w.word, meaning:w.meaning, translation:w.translation, level:w.level, mastery:0, review:false }));
+        setQueue(q=>[...mapped.slice(0,12)]);
+      }
+    } catch{ toast.error('Arama başarısız'); }
+  }
 
   function startReview(w:QueueWord){
     setReviewing(w); setShowAnswer(false);
@@ -71,77 +93,107 @@ export default function LearningHubPage(){
   if(!user) return <PageLoader text="Giriş gerekli" />;
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-14 space-y-10">
-      <div className="flex items-center justify-between">
-        <Heading>Öğrenme Merkezi</Heading>
-        <Link href="/dashboard" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60">Pano</Link>
+    <main className="max-w-7xl mx-auto px-5 md:px-8 py-12 md:py-16">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+        <div className="space-y-2">
+          <Heading className="leading-tight">Öğrenme Merkezi</Heading>
+          <p className="text-xs text-white/50 max-w-md">Günlük tekrar kuyruğu, yeni kelimeler ve arama ile kelime hazneni genişlet. Spaced repetition algoritması doğru cevaplarda aralığı uzatır.</p>
+          <form onSubmit={performSearch} className="flex items-center gap-2 pt-2">
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Kelime ara..." className="text-xs px-3 py-2 rounded-md bg-black/30 border border-white/10 focus:border-primary outline-none w-56" />
+            <button type="submit" className="text-xs px-3 py-2 rounded bg-primary text-black hover:bg-primary-400">Ara</button>
+            <button type="button" onClick={()=>{ setSearch(''); loadQueue(); }} className="text-xs px-2 py-2 rounded bg-black/40 border border-white/10 hover:border-primary/50">Sıfırla</button>
+          </form>
+        </div>
+        <Link href="/dashboard" className="text-xs px-4 py-2 rounded-md bg-black/40 border border-white/10 hover:border-primary/60 self-start md:self-auto">Pano</Link>
       </div>
-      <div className="grid lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm">Çalışma Kuyruğu</h2>
-            <button onClick={loadQueue} className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-primary text-black hover:bg-primary-400">
-              <RefreshCw size={14}/> Yenile
-            </button>
+      <div className="grid xl:grid-cols-4 gap-8">
+        <Card className="xl:col-span-3 p-6 md:p-8 flex flex-col h-[680px]">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-semibold text-sm tracking-wide uppercase text-white/70">Kuyruk & Yeni Kelimeler</h2>
+            <div className="flex items-center gap-2">
+              <button onClick={loadQueue} className="text-[11px] flex items-center gap-1 px-2.5 py-1.5 rounded bg-primary text-black hover:bg-primary-400">
+                <RefreshCw size={14}/> Yenile
+              </button>
+            </div>
           </div>
-          {loading && <div className="flex justify-center py-10"><LoadingSpinner size="lg" /></div>}
-          {!loading && queue.length === 0 && <div className="text-xs text-white/50">Kuyruk boş. Daha sonra tekrar gel.</div>}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="flex-1 overflow-y-auto pr-1 custom-scroll grid sm:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
+            {loading && <div className="col-span-full flex justify-center py-10"><LoadingSpinner size="lg" /></div>}
+            {!loading && queue.length === 0 && <div className="col-span-full text-xs text-white/40">Sonuç yok.</div>}
             {queue.map(w => (
-              <motion.div key={w.id} layout className={`rounded-lg p-4 border text-sm space-y-2 ${w.review? 'border-primary/40 bg-primary/5':'border-white/10 bg-black/30'}`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-primary-400">{w.word}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-primary/20 text-primary-800 dark:text-primary-200">{w.level}</span>
+              <motion.div key={w.id} layout className={`group relative rounded-lg p-4 border text-xs space-y-2 backdrop-blur-sm transition ${w.review? 'border-primary/50 bg-primary/5':'border-white/10 bg-black/30 hover:border-primary/40'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-semibold text-sm tracking-wide text-primary-300">{w.word}</div>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-primary/15 text-primary-400 border border-primary/30">{w.level}</span>
                 </div>
-                <div className="text-xs text-white/60 line-clamp-2">{w.meaning}</div>
+                <div className="text-[11px] text-white/60 line-clamp-3 min-h-[36px]">{w.meaning}</div>
                 {w.review && (
-                  <div className="flex gap-2 items-center text-[10px] text-white/40">
+                  <div className="flex flex-wrap gap-2 items-center text-[9px] text-white/40">
                     <span>Ustalık {w.mastery}</span>
                     <span>Aralık {w.interval}g</span>
                   </div>
                 )}
-                <button onClick={()=> startReview(w)} className="w-full text-xs px-3 py-2 rounded bg-primary text-black hover:bg-primary-400 flex items-center justify-center gap-1">
-                  <Play size={14}/> {w.review? 'Tekrar Et':'Öğren'}
+                <button onClick={()=> startReview(w)} className="w-full text-[11px] px-3 py-2 rounded-md bg-gradient-to-r from-primary to-primary/70 text-black font-medium flex items-center justify-center gap-1 shadow hover:brightness-105">
+                  <Play size={14}/> {w.review? 'Tekrar':'Öğren'}
                 </button>
               </motion.div>
             ))}
           </div>
         </Card>
-        <div className="space-y-6">
-          <Card className="p-5 space-y-4">
-            <h2 className="font-semibold text-sm flex items-center gap-2"><BookOpen size={16}/> İnceleme Paneli</h2>
-            <AnimatePresence mode="wait">
-              {reviewing ? (
-                <motion.div key={reviewing.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}} className="space-y-3">
-                  <div className="text-lg font-bold tracking-wide">{reviewing.word}</div>
-                  {!showAnswer && (
-                    <button onClick={()=> setShowAnswer(true)} className="w-full text-xs px-3 py-2 rounded bg-black/40 border border-white/10 hover:border-primary/50">Anlamı Göster</button>
-                  )}
-                  {showAnswer && (
-                    <div className="space-y-2 text-sm bg-black/30 border border-white/10 rounded p-3">
-                      <div><span className="text-white/50">Anlam:</span> {reviewing.meaning}</div>
-                      <div><span className="text-white/50">Çeviri:</span> {reviewing.translation}</div>
-                      {reviewing.review && <div className="text-[10px] text-white/40">Ustalık {reviewing.mastery} • Aralık {reviewing.interval}g</div>}
+        <div className="flex flex-col gap-6 h-[680px]">
+          <Card className="p-5 md:p-6 flex flex-col">
+            <h2 className="font-semibold text-[11px] tracking-wide uppercase mb-3 flex items-center gap-2"><BookOpen size={14}/> İnceleme</h2>
+            <div className="flex-1">
+              <AnimatePresence mode="wait">
+                {reviewing ? (
+                  <motion.div key={reviewing.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}} className="space-y-3">
+                    <div className="text-lg font-bold tracking-wide text-primary-300">{reviewing.word}</div>
+                    {!showAnswer && (
+                      <button onClick={()=> setShowAnswer(true)} className="w-full text-xs px-3 py-2 rounded bg-black/30 border border-white/10 hover:border-primary/50">Anlamı Göster</button>
+                    )}
+                    {showAnswer && (
+                      <div className="space-y-2 text-xs bg-black/30 border border-white/10 rounded p-3">
+                        <div><span className="text-white/40">Anlam:</span> {reviewing.meaning}</div>
+                        <div><span className="text-white/40">Çeviri:</span> {reviewing.translation}</div>
+                        {reviewing.review && <div className="text-[9px] text-white/40">Ustalık {reviewing.mastery} • Aralık {reviewing.interval}g</div>}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <button disabled={adding} onClick={()=> mark(false)} className="flex items-center justify-center gap-1 text-[11px] px-3 py-2 rounded bg-red-500/20 border border-red-500/40 hover:bg-red-500/30">
+                        <X size={14}/> Yanlış
+                      </button>
+                      <button disabled={adding} onClick={()=> mark(true)} className="flex items-center justify-center gap-1 text-[11px] px-3 py-2 rounded bg-green-500/25 border border-green-500/40 hover:bg-green-500/35">
+                        <Check size={14}/> Doğru
+                      </button>
                     </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button disabled={adding} onClick={()=> mark(false)} className="flex items-center justify-center gap-1 text-xs px-3 py-2 rounded bg-red-500/20 border border-red-500/40 hover:bg-red-500/30">
-                      <X size={14}/> Yanlış
-                    </button>
-                    <button disabled={adding} onClick={()=> mark(true)} className="flex items-center justify-center gap-1 text-xs px-3 py-2 rounded bg-green-500/20 border border-green-500/40 hover:bg-green-500/30">
-                      <Check size={14}/> Doğru
-                    </button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div key="empty" initial={{opacity:0}} animate={{opacity:1}} className="text-xs text-white/50">
-                  Soldan bir kelime seçip çalışmaya başla.
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </motion.div>
+                ) : (
+                  <motion.div key="empty" initial={{opacity:0}} animate={{opacity:1}} className="text-[11px] text-white/50">
+                    Soldan bir kelime seç ve başla.
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <div className="pt-4 mt-4 border-t border-white/5 text-[10px] text-white/40 leading-relaxed">
+              Doğru cevaplarda aralık katlanarak büyür; yanlışta sıfırlanır. Mastery 5 olunca kelime daha seyrek gelir.
+            </div>
           </Card>
-          <Card className="p-5 text-xs text-white/60">
-            Dinamik tekrar sistemi: Doğru cevapta aralık genişler, yanlışta kısalır. Mastery 1-5 arası ilerler. 5 olanlar daha seyrek gelir.
+          <Card className="p-5 md:p-6 text-[10px] space-y-3">
+            <h3 className="font-semibold text-[11px] tracking-wide uppercase text-white/60">Kelime İstatistikleri</h3>
+            {!stats && <div className="text-white/40">Yükleniyor...</div>}
+            {stats && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {stats.levels.map((l:any)=> (
+                    <div key={l.level} className="px-2 py-1 rounded bg-black/40 border border-white/10 text-white/60 text-[11px]">{l.level}: <span className="text-primary font-medium">{l.count}</span></div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {stats.categories.slice(0,6).map((c:any)=> (
+                    <div key={c.category} className="px-2 py-1 rounded bg-black/30 border border-white/10 text-[10px] flex items-center justify-between"><span>{c.category}</span><span className="text-primary font-semibold">{c.count}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>

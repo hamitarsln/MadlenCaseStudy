@@ -234,6 +234,28 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// Basic stats (counts per level & category) for UI dashboards
+router.get('/stats/summary', async (req,res) => {
+  try {
+    const byLevel = await Word.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$level', count: { $sum: 1 } } },
+      { $project: { level: '$_id', count: 1, _id: 0 } }
+    ]);
+    const byCategory = await Word.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 12 },
+      { $project: { category: '$_id', count: 1, _id: 0 } }
+    ]);
+    res.json({ success:true, levels: byLevel, categories: byCategory });
+  } catch (e) {
+    console.error('Word stats error', e);
+    res.status(500).json({ success:false, message:'Cannot compute stats' });
+  }
+});
+
 router.get('/:level', async (req, res) => {
   try {
     const { level } = req.params;
