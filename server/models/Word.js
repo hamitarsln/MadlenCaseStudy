@@ -69,6 +69,19 @@ const wordSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  autoAdded: {
+    type: Boolean,
+    default: false
+  },
+  pendingReview: {
+    type: Boolean,
+    default: false
+  },
+  origin: {
+    type: String,
+    enum: ['manual','ai-extracted'],
+    default: 'manual'
   }
 }, {
   timestamps: true

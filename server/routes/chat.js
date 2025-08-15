@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
+router.use((req,res,next)=>{
+  const limiter = req.app.get('chatLimiter');
+  if (limiter) return limiter(req,res,next);
+  next();
+});
 const User = require('../models/User');
 const Chat = require('../models/Chat');
 const jwt = require('jsonwebtoken');
 
-const GEMINI_API_KEY = 'AIzaSyAnLHfKQU232uwvOQNDjVHujebW-SLcst0';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
 
 function auth(req, res, next) {
@@ -106,7 +111,7 @@ router.post('/', auth, async (req, res) => {
 
     let aiResponse;
 
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
+    if (!GEMINI_API_KEY) {
       aiResponse = generateMockResponse(message, user.level);
       try {
         const jsonMatch = aiResponse.match(/```json([\s\S]*?)```/i) || aiResponse.match(/\{\s*"grammar_score"[\s\S]*?\}/i);
@@ -181,14 +186,14 @@ router.post('/', auth, async (req, res) => {
             fluency: metricsObj.fluency_score || metricsObj.fluency || 0,
             structureUsed: !!metricsObj.structure_used
           });
-          await user.save();
         }
       }
     } catch (e) {
       console.error('Error parsing AI response JSON:', e);
     }
 
-  await persistChat(user, chatDoc, message, aiResponse);
+    await persistChat(user, chatDoc, message, aiResponse);
+    try { user.updateDailyProgress && user.updateDailyProgress('message', 1); await user.save(); } catch(_) {}
 
   let visible = aiResponse
     .replace(/```json[\s\S]*?```/gi, '') 
@@ -202,8 +207,18 @@ router.post('/', auth, async (req, res) => {
     }
 
     await extractAndStoreLearned(user, aiResponse);
+    // naive error category inference for analytics (post-save)
+    try {
+      const lower = message.toLowerCase();
+      const errs = [];
+      if (/(he|she|it) don't\b/.test(lower)) errs.push('agreement');
+      if (/\bi (go|come|see) yesterday\b/.test(lower)) errs.push('tense');
+      if (/\bme (like|want|need)\b/.test(lower)) errs.push('grammar');
+      if (/\bvery (good|nice)\b/.test(lower)) errs.push('vocab');
+      if (errs.length) { user.recordErrors && user.recordErrors(errs); await user.save(); }
+    } catch(_) {}
 
-  return res.json({ success: true, response: visible, usage: data?.usage, channelId: chatDoc._id, title: chatDoc.title, level: user.level, dynamicLevel: user.dynamicLevel });
+    return res.json({ success: true, response: visible, usage: data?.usage, channelId: chatDoc._id, title: chatDoc.title, level: user.level, dynamicLevel: user.dynamicLevel });
 
   } catch (error) {
     console.error('Chat error:', error);
@@ -360,15 +375,72 @@ function suggestImprovements(message, level) {
 }
 
 function analyzeMessage(message) {
-  const wordCount = message.trim().split(' ').length;
-  const hasComplexWords = /\b(interesting|important|different|difficult|beautiful)\b/i.test(message);
-  const hasErrors = detectErrors(message).length > 0;
-  
+  const text = (message || '').trim();
+  if (!text) {
+    return { grammar_score: 1, vocab_score: 1, fluency_score: 1, structure_used: false, new_words: [] };
+  }
+  // Basic tokenization (keep simple to avoid deps)
+  const tokens = text.split(/\s+/).filter(Boolean);
+  const rawWordCount = tokens.length;
+  const lowerTokens = tokens.map(t => t.replace(/[^a-zA-Z'-]/g,'').toLowerCase()).filter(Boolean);
+  const unique = new Set(lowerTokens);
+  const typeTokenRatio = unique.size / Math.max(1, lowerTokens.length);
+
+  // Error heuristics
+  const errorPatterns = [
+    /(he|she|it) don't\b/i,
+    /\bme (like|want|need)\b/i,
+    /\b(i|you|we|they) is\b/i,
+    /\bi (go|come|see|eat|play) yesterday\b/i,
+    /\bvery (good|nice|big)\b/i,
+    /\bpeoples\b/i,
+    /\bmore better\b/i,
+    /\b\w+ did went\b/i
+  ];
+  let grammarErrors = 0;
+  errorPatterns.forEach(r => { if (r.test(text)) grammarErrors++; });
+  // Over-punctuation or run-on (very long sentence w/o periods)
+  const sentenceSplits = text.split(/[.!?]+/).filter(s => s.trim().length);
+  const avgSentenceLen = sentenceSplits.length ? rawWordCount / sentenceSplits.length : rawWordCount;
+  if (avgSentenceLen > 28) grammarErrors += 1; // likely run-on
+
+  // Grammar score: start from 4, subtract penalties, add slight boost for complexity usage
+  let grammarScore = 4 - grammarErrors;
+  // Complexity bonus if user attempts perfect tense / conditional / passive
+  if (/(have|has) \w+ed\b/i.test(text) || /would \b\w+\b/i.test(text) || /was \w+ed\b/i.test(text)) grammarScore += 0.4;
+  grammarScore = Math.min(5, Math.max(1, grammarScore));
+
+  // Vocabulary scoring
+  const advancedLexicon = [ 'fascinating','crucial','significant','analysis','perspective','concept','improve','strategy','approach','challenge','efficient','creative','complex','accuracy','elaborate','consider','alternative','solution','context','example','experience' ];
+  const advancedHits = lowerTokens.filter(t => advancedLexicon.includes(t)).length;
+  const rareRatio = advancedHits / Math.max(1, lowerTokens.length);
+  // Penalize repetition: count tokens repeated >2 times
+  const freq = {}; lowerTokens.forEach(t=>freq[t]=(freq[t]||0)+1);
+  const heavyRepeats = Object.values(freq).filter(c=>c>=3).length;
+  let vocabScore = 2.5;
+  vocabScore += Math.min(1.5, typeTokenRatio * 2.5); // diversity up to +1.5
+  vocabScore += Math.min(1.2, rareRatio * 12); // advanced words up to +1.2
+  vocabScore -= Math.min(1, heavyRepeats * 0.4); // repetition penalty
+  vocabScore = Math.min(5, Math.max(1, vocabScore));
+
+  // Fluency: based on sentence balance, limited errors, moderate length, avoidance of abrupt fragments
+  const fragmentCount = sentenceSplits.filter(s => s.trim().split(/\s+/).length < 2).length;
+  let fluencyScore = 2.5;
+  if (avgSentenceLen >= 8 && avgSentenceLen <= 22) fluencyScore += 1.0; // healthy sentence length
+  if (grammarErrors === 0) fluencyScore += 0.8; else fluencyScore -= Math.min(1.2, grammarErrors * 0.4);
+  if (fragmentCount > 1) fluencyScore -= Math.min(1, fragmentCount * 0.5);
+  // Long coherent text bonus
+  if (rawWordCount > 18 && grammarErrors <= 1) fluencyScore += 0.5;
+  fluencyScore = Math.min(5, Math.max(1, fluencyScore));
+
+  // Structure usage detection (higher level constructions)
+  const structureUsed = /(have|has) \w+ed\b/i.test(text) || /would \w+\b/i.test(text) || /if .* would/i.test(text) || /because/i.test(text);
+
   return {
-    grammar_score: hasErrors ? Math.max(1, 3 - detectErrors(message).length) : Math.min(5, 3 + Math.floor(wordCount / 10)),
-    vocab_score: hasComplexWords ? Math.min(5, 3 + Math.floor(wordCount / 8)) : Math.max(1, Math.floor(wordCount / 5)),
-    fluency_score: wordCount > 15 ? Math.min(5, 3 + Math.floor(wordCount / 12)) : Math.max(1, 2),
-    structure_used: wordCount > 10 && !hasErrors,
+    grammar_score: +grammarScore.toFixed(2),
+    vocab_score: +vocabScore.toFixed(2),
+    fluency_score: +fluencyScore.toFixed(2),
+    structure_used: structureUsed,
     new_words: []
   };
 }
@@ -399,28 +471,44 @@ async function extractAndStoreLearned(user, aiResponse) {
     if (found.size === 0) return;
     
     const Word = require('../models/Word');
-    const words = await Word.find({ 
-      word: { $regex: new RegExp(`^(${Array.from(found).join('|')})$`, 'i') } 
-    });
-    
-    for (const w of words) {
-      const existingLearned = user.wordsLearned.find(x => 
-        x.wordId.toString() === w._id.toString()
-      );
-      
-      if (!existingLearned) {
-        user.wordsLearned.push({ 
-          wordId: w._id, 
-          mastery: 1,
-          learnedAt: new Date()
-        });
-        user.progress.wordsLearned += 1;
-      } else if (existingLearned.mastery < 5) {
-        existingLearned.mastery += 1;
+    const list = Array.from(found);
+    if (!list.length) return;
+    const existing = await Word.find({ word: { $in: list } });
+    const existingMap = new Map(existing.map(w => [w.word, w]));
+    for (const raw of list) {
+      const w = existingMap.get(raw);
+      if (w) {
+        const existingLearned = user.wordsLearned.find(x => x.wordId.toString() === w._id.toString());
+        if (!existingLearned) {
+          user.wordsLearned.push({ wordId: w._id, mastery: 1, learnedAt: new Date() });
+          user.progress.wordsLearned += 1;
+        } else if (existingLearned.mastery < 5) {
+          existingLearned.mastery += 1;
+        }
+      } else {
+        // Auto-add pipeline: minimal placeholder, pending review
+        try {
+          const placeholder = await Word.create({
+            word: raw,
+            meaning: 'To be reviewed',
+            translation: 'gözden geçir',
+            example: `Example for ${raw} pending`,
+            exampleTranslation: 'Örnek gözden geçirilecek',
+            level: user.level || 'A1',
+            partOfSpeech: 'noun',
+            autoAdded: true,
+            pendingReview: true,
+            origin: 'ai-extracted'
+          });
+          user.wordsLearned.push({ wordId: placeholder._id, mastery: 1, learnedAt: new Date() });
+          user.progress.wordsLearned += 1;
+        } catch (e) {
+          // ignore duplicate race or validation errors
+        }
       }
     }
     
-    await user.save();
+  await user.save();
   } catch (e) {
     console.error('extractAndStoreLearned error', e);
   }

@@ -20,7 +20,9 @@ router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success:false, message:'User not found' });
-    res.json({ success:true, user: {
+    if (typeof user._ensureDailyContext === 'function') user._ensureDailyContext();
+    const debug = req.query.debug === '1' || req.headers['x-debug-adaptive'] === '1';
+    const base = {
       id: user._id,
       name: user.name,
       email: user.email,
@@ -28,11 +30,60 @@ router.get('/me', auth, async (req, res) => {
       dynamicLevel: user.dynamicLevel,
       levelBuffer: user.levelBuffer,
       currentTargetStructure: user.currentTargetStructure,
-      skillScores: user.skillScores
-    }});
+      skillScores: user.skillScores,
+      streak: user.streak,
+      dailyGoals: user.dailyGoals,
+      dailyProgress: user.dailyProgress
+    };
+    if (debug) {
+      base.debugAdaptive = {
+        emaSkills: user.emaSkills,
+        lastComposite: user.lastComposite,
+        bufferStats: user.bufferStats,
+        metricsWindow: (user.metricsHistory || []).slice(-8),
+        lastAssessmentAt: user.lastAssessmentAt
+      };
+    }
+    res.json({ success:true, user: base });
   } catch (e) {
     console.error('Get me error', e);
     res.status(500).json({ success:false, message:'Cannot fetch profile' });
+  }
+});
+
+// Daily summary endpoint
+router.get('/me/daily', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    if (typeof user._ensureDailyContext === 'function') user._ensureDailyContext();
+    await user.save();
+    res.json({ success:true, daily: {
+      date: user.dailyProgress?.date,
+      goals: user.dailyGoals,
+      progress: user.dailyProgress,
+      streak: user.streak,
+      errorProfile: user.errorProfile
+    }});
+  } catch (e) {
+    console.error('Daily summary error', e);
+    res.status(500).json({ success:false, message:'Cannot fetch daily summary' });
+  }
+});
+
+// Update daily goals
+router.put('/me/daily/goals', auth, async (req, res) => {
+  try {
+    const { words, messages } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success:false, message:'User not found' });
+    if (words !== undefined) user.dailyGoals.words = Math.min(200, Math.max(1, parseInt(words)));
+    if (messages !== undefined) user.dailyGoals.messages = Math.min(500, Math.max(1, parseInt(messages)));
+    await user.save();
+    res.json({ success:true, goals: user.dailyGoals });
+  } catch (e) {
+    console.error('Update daily goals error', e);
+    res.status(500).json({ success:false, message:'Cannot update goals' });
   }
 });
 

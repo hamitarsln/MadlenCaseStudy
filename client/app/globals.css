@@ -87,3 +87,13 @@ body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--
 .learned-word {
   @apply text-primary font-semibold bg-primary/20 px-1.5 py-0.5 rounded transition-colors hover:bg-primary/30 cursor-default;
 }
+
+/* Hero creative animations */
+.animate-float-slow { animation: float 11s ease-in-out infinite; }
+.animate-float-medium { animation: float 8s ease-in-out infinite; }
+.animate-float-fast { animation: float 5s ease-in-out infinite; }
+@keyframes float { 0%,100% { transform: translateY(-6px) translateX(0); } 50% { transform: translateY(8px) translateX(4px) scale(1.02);} }
+
+@keyframes pulseRing { 0% { transform: scale(0.8); opacity:0.6;} 70% { transform: scale(1.6); opacity:0;} 100% { opacity:0;} }
+.pulse-ring:before, .pulse-ring:after { content:""; position:absolute; inset:0; border:2px solid #FFC30033; border-radius:inherit; animation:pulseRing 4s linear infinite; }
+.pulse-ring:after { animation-delay:2s; }

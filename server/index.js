@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -13,6 +14,30 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+// Basic global rate limiter
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(globalLimiter);
+
+// Specialized buckets
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  message: { success:false, message: 'Çok fazla giriş/deneme. Lütfen birkaç dakika sonra tekrar deneyin.' }
+});
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { success:false, message: 'Sohbet hız limiti aşıldı. Biraz bekleyin.' }
+});
+
+app.set('authLimiter', authLimiter);
+app.set('chatLimiter', chatLimiter);
 
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('MongoDB connected successfully'))

@@ -1,13 +1,14 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSessionStore, authHeader } from '../../stores/session';
 import { Heading, Card, useTheme } from '../../components/theme-provider';
 import { LoadingSpinner, PageLoader } from '../../components/loading';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Send, BookOpen, Plus, Trash2, BarChart3 } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { MessageFormatter } from '../../components/message-formatter';
+import { DailyGoalsForm } from '../../components/daily-goals-form';
 
 interface ChatMsg { message: string; isUser: boolean; timestamp?: string; }
 interface Word { _id: string; word: string; meaning: string; translation: string; level: string; }
@@ -25,6 +26,10 @@ export default function Dashboard() {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   const { theme, toggle } = useTheme();
   const [adaptiveStatus, setAdaptiveStatus] = useState<{buffer:number; target:string; dyn?:string}>({buffer:0,target:'present_simple'});
+  const [daily,setDaily] = useState<any>(null);
+  const [showGoalsEdit, setShowGoalsEdit] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollLockRef = useRef(false); // future use if we add manual scroll lock
 
   useEffect(() => {
     if (!hydrated || !user) return;
@@ -92,6 +97,11 @@ export default function Dashboard() {
               dyn: d.user.dynamicLevel 
             });
           }
+        }
+        const dr = await fetch(`${apiBase}/api/users/me/daily`, { headers: authHeader() as Record<string,string> });
+        if (dr.ok) {
+          const dd = await dr.json();
+          if (dd.success) setDaily(dd.daily);
         }
       } catch {}
     })();
@@ -177,6 +187,17 @@ export default function Dashboard() {
     } finally { setLoading(false); }
   }
 
+  // Always keep chat scrolled to bottom on new messages (requested behavior)
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    // Force to bottom
+    // Using requestAnimationFrame to ensure DOM updated after new message render
+    requestAnimationFrame(() => {
+      try { el.scrollTop = el.scrollHeight; } catch {}
+    });
+  }, [chat, loading]);
+
   if (!hydrated) return <PageLoader text="Uygulama yükleniyor..." />;
   if (!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
   if (pageLoading) return <PageLoader text="Pano yükleniyor..." />;
@@ -215,6 +236,13 @@ export default function Dashboard() {
               <span className="text-primary/80 font-semibold">{adaptiveStatus.buffer.toFixed(1)}</span>
             </div>
             <div className="flex items-center gap-1"><span>Hedef Yapı:</span><span className="text-primary font-medium">{adaptiveStatus.target}</span></div>
+            {daily && (
+              <div className="flex items-center gap-2 bg-black/30 border border-white/10 px-2 py-1 rounded">
+                <span className="text-[9px] uppercase tracking-wide text-white/40">Günlük</span>
+                <span className="text-[10px]">{daily.progress.messages}/{daily.goals.messages} msg • {daily.progress.words}/{daily.goals.words} kelime</span>
+                <span className="text-[10px] text-primary">🔥 {daily.streak}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 w-full md:w-auto text-center">
@@ -244,7 +272,7 @@ export default function Dashboard() {
         {/* Chat */}
         <Card className="lg:col-span-2 flex flex-col h-[620px]">
           <h2 className="font-semibold mb-3">AI Sohbet</h2>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 pr-2">
             {chat.map((m,i) => (
               <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-3 text-sm leading-relaxed shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>
                 <MessageFormatter content={m.message} isUser={m.isUser} />
@@ -278,6 +306,39 @@ export default function Dashboard() {
               ))}
             </div>
           </Card>
+          {daily && (
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-sm">Günlük Hedef</h2>
+                <button onClick={()=> setShowGoalsEdit(v=>!v)} className="text-xs px-2 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60 flex items-center gap-1">
+                  <Settings2 size={12}/> {showGoalsEdit? 'Kapat':'Düzenle'}
+                </button>
+              </div>
+              {!showGoalsEdit && (
+                <div className="space-y-3 text-[10px] text-white/60">
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span>Mesaj</span><span>{daily.progress.messages}/{daily.goals.messages}</span></div>
+                    <ProgressBar value={daily.progress.messages} goal={daily.goals.messages} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span>Kelimeler</span><span>{daily.progress.words}/{daily.goals.words}</span></div>
+                    <ProgressBar value={daily.progress.words} goal={daily.goals.words} />
+                  </div>
+                  <div className="pt-1 flex items-center justify-between"><span>Streak</span><span className="text-primary font-semibold">{daily.streak} 🔥</span></div>
+                  {daily.errorProfile && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {Object.entries(daily.errorProfile).map(([k,v]) => (
+                        <div key={k} className="flex items-center justify-between bg-black/30 rounded px-2 py-1 border border-white/5"><span>{k}</span><span className="text-primary font-medium">{v as any}</span></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {showGoalsEdit && (
+                <DailyGoalsForm apiBase={apiBase} initial={daily.goals} onUpdate={(g)=> setDaily((d:any)=> ({...d, goals:g}))} />
+              )}
+            </Card>
+          )}
           <Card>
             <h2 className="font-semibold mb-2">Motivasyon</h2>
             <p className="text-sm text-neutral-700 dark:text-white/70">Hedefini koru! Her gün az da olsa konuşarak ilerle. Yeni kelimeler sohbet içinde işaretlenecek.</p>
@@ -293,6 +354,15 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
     <div className="bg-[var(--bg-muted)]/70 dark:bg-black/40 rounded-xl px-4 py-3 border border-[var(--border)] dark:border-white/10 transition-colors">
       <div className="flex items-center justify-center gap-1 text-primary mb-1 text-xs">{icon}{label}</div>
       <div className="font-semibold text-lg">{value}</div>
+    </div>
+  );
+}
+
+function ProgressBar({ value, goal }: { value:number; goal:number }) {
+  const pct = Math.min(100, (value/goal)*100);
+  return (
+    <div className="h-2 w-full bg-black/40 rounded overflow-hidden relative">
+      <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-primary/70" style={{ width: pct+'%' }} />
     </div>
   );
 }

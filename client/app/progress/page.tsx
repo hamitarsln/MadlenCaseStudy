@@ -79,6 +79,12 @@ export default function ProgressPage(){
                 <div>Toplam Mesaj: {summary.progress.totalChatMessages}</div>
               </div>
             </Card>
+            {summary && (summary as any).errorProfile && (
+              <Card className='p-5 space-y-3'>
+                <h2 className='font-semibold text-sm'>Hata Profili</h2>
+                <ErrorMiniChart profile={(summary as any).errorProfile} />
+              </Card>
+            )}
             {summary.skillScores && (
               <Card className='p-5 space-y-3'>
                 <h2 className='font-semibold text-sm'>Beceri Puanları</h2>
@@ -136,5 +142,23 @@ export default function ProgressPage(){
         </div>
       )}
     </main>
+  );
+}
+
+function ErrorMiniChart({ profile }:{ profile: Record<string,number> }) {
+  const entries = Object.entries(profile || {});
+  if (!entries.length) return <div className='text-[10px] text-white/40'>Veri yok</div>;
+  const max = Math.max(...entries.map(e=> e[1]));
+  return (
+    <div className='space-y-2'>
+      {entries.map(([k,v]) => (
+        <div key={k} className='space-y-1'>
+          <div className='flex justify-between text-[10px] text-white/50'><span>{k}</span><span>{v}</span></div>
+          <div className='h-1.5 rounded bg-black/40 overflow-hidden'>
+            <div className='h-full bg-gradient-to-r from-primary to-primary/60' style={{ width: max? ((v/max)*100)+'%':'0%' }} />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
