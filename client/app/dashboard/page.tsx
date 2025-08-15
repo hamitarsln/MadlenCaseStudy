@@ -5,7 +5,7 @@ import { Heading, Card, useTheme } from '../../components/theme-provider';
 import { LoadingSpinner, PageLoader } from '../../components/loading';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2, TrendingUp, PieChart } from 'lucide-react';
+import { Send, BookOpen, Plus, Trash2, BarChart3, Settings2, TrendingUp, PieChart, Menu, X as Close } from 'lucide-react';
 import Link from 'next/link';
 import { MessageFormatter } from '../../components/message-formatter';
 import { DailyGoalsForm } from '../../components/daily-goals-form';
@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [adaptiveStatus, setAdaptiveStatus] = useState<{buffer:number; target:string; dyn?:string}>({buffer:0,target:'present_simple'});
   const [metricsWindow, setMetricsWindow] = useState<any[]>([]); // recent adaptive metrics history
   const [wordStats, setWordStats] = useState<{ levels?: any[]; categories?: any[] }>({});
+  const [showChannelsMobile,setShowChannelsMobile] = useState(false);
   const [daily,setDaily] = useState<any>(null);
   const [showGoalsEdit, setShowGoalsEdit] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
@@ -324,18 +325,33 @@ export default function Dashboard() {
         </section>
       )}
 
-      <div className="grid lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 flex flex-col h-[620px] overflow-hidden">
+      <div className="grid lg:grid-cols-4 gap-6 items-start">
+        {/* Mobile channel toggle */}
+        <div className="lg:hidden flex justify-between items-center -mt-4 mb-2 w-full">
+          <button onClick={()=> setShowChannelsMobile(v=>!v)} className="text-xs px-3 py-2 rounded bg-black/40 border border-white/10 flex items-center gap-1" aria-label="Kanalları göster/gizle">
+            {showChannelsMobile ? <Close size={14}/> : <Menu size={14}/> } Kanallar
+          </button>
+          <button onClick={createChannel} className="text-xs px-3 py-2 bg-primary text-dark rounded flex items-center gap-1" aria-label="Yeni sohbet oluştur"><Plus size={14}/> Yeni</button>
+        </div>
+        <Card className={`lg:col-span-1 flex flex-col overflow-hidden transition-all ${showChannelsMobile? 'block':'hidden lg:flex'} max-h-[60vh] lg:h-[620px]`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Sohbetler</h2>
-            <button onClick={createChannel} className="text-xs px-2 py-1 bg-primary text-dark rounded flex items-center gap-1 hover:bg-primary-400 transition"><Plus size={14}/> Yeni</button>
+            <button onClick={createChannel} className="hidden lg:inline-flex text-xs px-2 py-1 bg-primary text-dark rounded items-center gap-1 hover:bg-primary-400 transition" aria-label="Yeni sohbet"><Plus size={14}/> Yeni</button>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scroll" role="list" aria-label="Sohbet listesi">
             {channels.length === 0 && <div className="text-xs text-neutral-500 dark:text-white/40 py-4">Henüz sohbet yok</div>}
             {channels.map(ch => (
-              <div key={ch.id} className={`group relative text-xs rounded-md p-2 border cursor-pointer flex items-center gap-2 transition-colors ${ch.id === currentChannel ? 'bg-primary text-dark border-primary':'bg-[var(--bg-muted)]/70 dark:bg-black/30 border-[var(--border)] dark:border-white/10 hover:border-primary/40'}`} onClick={() => setCurrentChannel(ch.id)}>
+              <div
+                key={ch.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e)=> (e.key==='Enter'||e.key===' ') && setCurrentChannel(ch.id)}
+                className={`group relative text-xs rounded-md p-2 border cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/60 flex items-center gap-2 transition-colors ${ch.id === currentChannel ? 'bg-primary text-dark border-primary':'bg-[var(--bg-muted)]/70 dark:bg-black/30 border-[var(--border)] dark:border-white/10 hover:border-primary/40'}`}
+                onClick={() => setCurrentChannel(ch.id)}
+                aria-label={`Sohbet ${ch.title}`}
+              >
                 <span className="line-clamp-2 flex-1 text-left">{ch.title}</span>
-                <button onClick={(e)=>{e.stopPropagation(); deleteChannel(ch.id);}} className="opacity-0 group-hover:opacity-100 text-neutral-500 dark:text-black/50 hover:text-black transition">
+                <button onClick={(e)=>{e.stopPropagation(); deleteChannel(ch.id);}} className="opacity-0 group-hover:opacity-100 text-neutral-500 dark:text-black/50 hover:text-black transition focus:opacity-100 focus:outline-none" aria-label="Sohbeti sil">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -344,9 +360,9 @@ export default function Dashboard() {
         </Card>
 
         {/* Chat */}
-        <Card className="lg:col-span-2 flex flex-col h-[620px]">
+        <Card className="lg:col-span-2 flex flex-col h-[60vh] lg:h-[620px] relative">
           <h2 className="font-semibold mb-3">AI Sohbet</h2>
-          <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scroll pb-24" aria-live="polite">
             {chat.map((m,i) => (
               <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-3 text-sm leading-relaxed shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>
                 <MessageFormatter content={m.message} isUser={m.isUser} />
@@ -359,9 +375,11 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <div className="mt-4 flex gap-2">
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Soru sor veya konuş..." className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/40 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary outline-none transition-colors" />
-            <button onClick={sendMessage} disabled={loading || !currentChannel && channels.length>6} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : ''} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center">{loading ? <LoadingSpinner size="sm" /> : <Send size={18} />}</button>
+          <div className="absolute left-0 right-0 bottom-0 p-3 bg-gradient-to-t from-black/60 via-black/40 to-transparent backdrop-blur-sm">
+            <div className="flex gap-2">
+              <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Mesaj yaz..." className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/60 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-colors" aria-label="Mesaj" />
+              <button onClick={sendMessage} disabled={loading || (!currentChannel && channels.length>6)} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : 'Gönder'} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center focus:ring-2 focus:ring-primary/50 disabled:opacity-50" aria-label="Gönder">{loading ? <LoadingSpinner size="sm" /> : <Send size={18} />}</button>
+            </div>
           </div>
         </Card>
 
@@ -445,7 +463,7 @@ function ProgressBar({ value, goal }: { value:number; goal:number }) {
 function SkillCard({ title, series, current, accent }: { title:string; series:number[]; current:number; accent:string }) {
   return (
     <Card className="relative overflow-hidden">
-      <div className="absolute inset-0 opacity-40 bg-gradient-to-br pointer-events-none mix-blend-overlay rounded-xl ${accent}" />
+  <div className={`absolute inset-0 opacity-40 bg-gradient-to-br pointer-events-none mix-blend-overlay rounded-xl ${accent}`} />
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-medium text-sm">{title}</h3>
         <span className="text-primary text-xs font-semibold">{current ? Number(current).toFixed(2): '--'}</span>
