@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useSessionStore, authHeader } from '../../stores/session';
 import { Heading, Card, useTheme } from '../../components/theme-provider';
 import { LoadingSpinner, PageLoader } from '../../components/loading';
@@ -17,6 +17,7 @@ interface Channel { id: string; title: string; updatedAt?: string; createdAt?: s
 export default function Dashboard() {
   const { user, hydrated } = useSessionStore();
   const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [chatLoading,setChatLoading] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -31,8 +32,16 @@ export default function Dashboard() {
   const [showChannelsMobile,setShowChannelsMobile] = useState(false);
   const [daily,setDaily] = useState<any>(null);
   const [showGoalsEdit, setShowGoalsEdit] = useState(false);
+  const [channelFilter,setChannelFilter] = useState('');
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const channelSearchRef = useRef<HTMLInputElement | null>(null);
   const scrollLockRef = useRef(false); // future use if we add manual scroll lock
+  const filteredChannels = useMemo(()=> {
+    if (!channelFilter.trim()) return channels;
+    const q = channelFilter.toLowerCase();
+    return channels.filter(c => c.title.toLowerCase().includes(q));
+  },[channels, channelFilter]);
 
   useEffect(() => {
     if (!hydrated || !user) return;
@@ -73,6 +82,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!currentChannel || !user) { setChat([]); return; }
     localStorage.setItem('madlen-current-channel', currentChannel);
+    setChatLoading(true);
     (async () => {
       try {
         const res = await fetch(`${apiBase}/api/chat/channels/${currentChannel}`, { headers: authHeader() as Record<string,string> });
@@ -82,6 +92,8 @@ export default function Dashboard() {
       } catch (e: any) {
         console.error('Channel messages fetch failed', e);
         toast.error(e.message || 'Mesajlar yüklenemedi');
+      } finally {
+        setChatLoading(false);
       }
     })();
   }, [currentChannel, user]);
@@ -165,7 +177,7 @@ export default function Dashboard() {
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
-    const content = input;
+    const content = input.trim();
     setChat(c => [...c, { message: content, isUser: true }]);
     setInput('');
     setLoading(true);
@@ -219,6 +231,17 @@ export default function Dashboard() {
     });
   }, [chat, loading]);
 
+  // Keyboard shortcuts (Ctrl+K focus chat, / focus channel search, Esc blur)
+  useEffect(()=>{
+    function handler(e: KeyboardEvent){
+      if (e.ctrlKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); chatInputRef.current?.focus(); }
+      else if (e.key === '/' && document.activeElement !== channelSearchRef.current) { e.preventDefault(); channelSearchRef.current?.focus(); }
+      else if (e.key === 'Escape') { (document.activeElement as HTMLElement)?.blur(); }
+    }
+    window.addEventListener('keydown', handler);
+    return ()=> window.removeEventListener('keydown', handler);
+  },[]);
+
   if (!hydrated) return <PageLoader text="Uygulama yükleniyor..." />;
   if (!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
   if (pageLoading) return <PageLoader text="Pano yükleniyor..." />;
@@ -235,11 +258,12 @@ export default function Dashboard() {
       {/* Navbar */}
       <div className="flex items-center justify-between mb-8 -mt-6 md:-mt-10 pb-4 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm font-medium text-primary">Madlen</Link>
+          <Link href="/" className="text-sm font-medium text-primary hover:brightness-110 transition">Madlen</Link>
           <Link href="/progress" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60 flex items-center gap-1"><BarChart3 size={14}/> İlerleme</Link>
           <Link href="/learning" className="text-xs px-3 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60 flex items-center gap-1"><BookOpen size={14}/> Öğrenme</Link>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={toggle} aria-label="Tema değiştir" className="text-[10px] px-2 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/60">{theme==='dark'?'🌙':'🌞'}</button>
           <div className="text-[10px] text-white/50 flex flex-col items-end leading-tight">
             <span>Level: <span className="text-primary font-semibold">{user.level}</span></span>
             {user.dynamicLevel && user.dynamicLevel !== user.level && (
@@ -338,9 +362,17 @@ export default function Dashboard() {
             <h2 className="font-semibold">Sohbetler</h2>
             <button onClick={createChannel} className="hidden lg:inline-flex text-xs px-2 py-1 bg-primary text-dark rounded items-center gap-1 hover:bg-primary-400 transition" aria-label="Yeni sohbet"><Plus size={14}/> Yeni</button>
           </div>
+          <div className="mb-2 relative">
+            <input ref={channelSearchRef} placeholder="/ Kanal ara" className="w-full text-[11px] px-2.5 py-1.5 rounded bg-black/30 border border-white/10 focus:border-primary outline-none" value={channelFilter} onChange={e=> setChannelFilter(e.target.value)} aria-label="Kanal ara" />
+            {channelFilter && (
+              <button onClick={()=> setChannelFilter('')} className="absolute right-1 top-1 text-[10px] px-1 rounded bg-black/40 hover:bg-black/60">×</button>
+            )}
+          </div>
           <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scroll" role="list" aria-label="Sohbet listesi">
-            {channels.length === 0 && <div className="text-xs text-neutral-500 dark:text-white/40 py-4">Henüz sohbet yok</div>}
-            {channels.map(ch => (
+            {filteredChannels.length === 0 && <div className="text-xs text-neutral-500 dark:text-white/40 py-4">
+              {channels.length === 0 ? 'Henüz sohbet yok. Yeni butonuyla başla.' : 'Eşleşen sohbet yok.'}
+            </div>}
+            {filteredChannels.map(ch => (
               <div
                 key={ch.id}
                 role="button"
@@ -360,9 +392,16 @@ export default function Dashboard() {
         </Card>
 
         {/* Chat */}
-        <Card className="lg:col-span-2 flex flex-col h-[60vh] lg:h-[620px] relative">
+        <Card className="lg:col-span-2 flex flex-col h-[60vh] lg:h-[640px] relative">
           <h2 className="font-semibold mb-3">AI Sohbet</h2>
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scroll pb-24" aria-live="polite">
+            {chatLoading && chat.length===0 && (
+              <div className="flex flex-col gap-3 py-6">
+                {Array.from({length:4}).map((_,i)=>(
+                  <div key={i} className={`h-10 w-2/3 rounded-md bg-gradient-to-r from-white/10 to-white/5 animate-pulse ${i%2? 'ml-auto w-1/2':''}`}></div>
+                ))}
+              </div>
+            )}
             {chat.map((m,i) => (
               <motion.div key={i} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} className={`max-w-[80%] rounded-lg px-4 py-3 text-sm leading-relaxed shadow-sm transition-colors ${m.isUser ? 'ml-auto bg-primary text-dark shadow-neon':'bg-[var(--bg-muted)] dark:bg-white/5 border border-[var(--border)] dark:border-white/10'}`}>
                 <MessageFormatter content={m.message} isUser={m.isUser} />
@@ -374,10 +413,15 @@ export default function Dashboard() {
                 <span>AI yazıyor...</span>
               </div>
             )}
+            {!loading && !chatLoading && chat.length===0 && (
+              <div className="text-[11px] text-white/40 pt-6">Henüz mesaj yok. Sağdaki önerilen kelimelerden bazılarını kullanarak ilk mesajını yaz.</div>
+            )}
           </div>
           <div className="absolute left-0 right-0 bottom-0 p-3 bg-gradient-to-t from-black/60 via-black/40 to-transparent backdrop-blur-sm">
             <div className="flex gap-2">
-              <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> e.key==='Enter' && sendMessage()} placeholder="Mesaj yaz..." className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/60 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-colors" aria-label="Mesaj" />
+              <input ref={chatInputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=> {
+                if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+              }} placeholder="Mesaj yaz... (Ctrl+K odak)" className="flex-1 bg-[var(--bg-muted)]/80 dark:bg-black/60 border border-[var(--border)] dark:border-white/10 rounded-md px-3 py-3 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-colors" aria-label="Mesaj" />
               <button onClick={sendMessage} disabled={loading || (!currentChannel && channels.length>6)} title={!currentChannel && channels.length>6 ? 'Önce kanal oluştur' : 'Gönder'} className="btn-primary w-12 h-12 rounded-md flex items-center justify-center focus:ring-2 focus:ring-primary/50 disabled:opacity-50" aria-label="Gönder">{loading ? <LoadingSpinner size="sm" /> : <Send size={18} />}</button>
             </div>
           </div>
