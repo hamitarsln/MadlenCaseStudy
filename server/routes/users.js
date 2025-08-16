@@ -51,7 +51,6 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// Daily summary endpoint
 router.get('/me/daily', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -71,7 +70,6 @@ router.get('/me/daily', auth, async (req, res) => {
   }
 });
 
-// Update daily goals
 router.put('/me/daily/goals', auth, async (req, res) => {
   try {
     const { words, messages } = req.body;

@@ -234,7 +234,6 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// Basic stats (counts per level & category) for UI dashboards
 router.get('/stats/summary', async (req,res) => {
   try {
     const byLevel = await Word.aggregate([

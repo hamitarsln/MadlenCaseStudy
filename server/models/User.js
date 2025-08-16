@@ -126,14 +126,13 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Daily goals, streak & error profile additions (backward compatible defaults handled at access time)
 userSchema.add({
   dailyGoals: {
     words: { type: Number, default: 15 },
     messages: { type: Number, default: 20 }
   },
   dailyProgress: {
-    date: { type: String }, // YYYY-MM-DD
+    date: { type: String }, 
     words: { type: Number, default: 0 },
     messages: { type: Number, default: 0 },
     completed: { type: Boolean, default: false }
@@ -147,7 +146,6 @@ userSchema.add({
   }
 });
 
-// Advanced adaptive analytics fields (added later; optional in existing docs)
 userSchema.add({
   emaSkills: {
     grammar: { type: Number, default: 0 },
@@ -225,95 +223,80 @@ userSchema.methods.cycleTargetStructure = function() {
 
 userSchema.methods.applyAdaptiveMetrics = function(metrics) {
   if (!metrics) return;
-  // Normalize incoming (fallback to 0..5 bounds)
   const g = Math.min(5, Math.max(0, metrics.grammar ?? metrics.grammar_score ?? 0));
   const v = Math.min(5, Math.max(0, metrics.vocab ?? metrics.vocab_score ?? 0));
   const f = Math.min(5, Math.max(0, metrics.fluency ?? metrics.fluency_score ?? 0));
   const structureUsed = !!metrics.structureUsed;
 
-  // Exponential moving averages (stabilize noise)
-  const alphaBase = 0.18; // smoothing factor
+  const alphaBase = 0.18; 
   const samples = (this.bufferStats?.samples || 0) + 1;
-  const alpha = samples < 10 ? (alphaBase + 0.1) : alphaBase; // faster adapt early
+  const alpha = samples < 10 ? (alphaBase + 0.1) : alphaBase; 
   this.emaSkills = this.emaSkills || { grammar: g, vocab: v, fluency: f };
   this.emaSkills.grammar = this.emaSkills.grammar ? (this.emaSkills.grammar * (1 - alpha) + g * alpha) : g;
   this.emaSkills.vocab   = this.emaSkills.vocab   ? (this.emaSkills.vocab * (1 - alpha) + v * alpha) : v;
   this.emaSkills.fluency = this.emaSkills.fluency ? (this.emaSkills.fluency * (1 - alpha) + f * alpha) : f;
 
-  // Composite (weighted: grammar 40%, vocab 30%, fluency 30%)
   const composite = +(this.emaSkills.grammar * 0.4 + this.emaSkills.vocab * 0.3 + this.emaSkills.fluency * 0.3).toFixed(3);
 
-  // History (cap last 60)
   this.metricsHistory = this.metricsHistory || [];
   this.metricsHistory.push({ at: new Date(), grammar: g, vocab: v, fluency: f, composite, structureUsed });
   if (this.metricsHistory.length > 60) this.metricsHistory = this.metricsHistory.slice(-60);
 
-  // Track short window variance (last 8 composites)
   const window = this.metricsHistory.slice(-8);
   const mean = window.reduce((a,m)=>a+m.composite,0) / window.length;
   const variance = window.reduce((a,m)=>a+Math.pow(m.composite-mean,2),0)/Math.max(1, window.length-1);
   const std = Math.sqrt(variance);
-  const coeffVar = mean ? std/mean : 0; // relative variability (0.. ~)
+  const coeffVar = mean ? std/mean : 0;
 
-  // Dynamic baseline per dynamicLevel that scales upward when stable, downward when unstable
   const baseBaselines = { A1: 2.2, A2: 2.9, B1: 3.5 };
-  const stabilityFactor = Math.max(0, 1 - coeffVar); // 1 when stable, lower when noisy
-  const adaptiveLift = stabilityFactor * Math.min(1, samples/25) * 0.6; // up to +0.6 when very stable
+  const stabilityFactor = Math.max(0, 1 - coeffVar); 
+  const adaptiveLift = stabilityFactor * Math.min(1, samples/25) * 0.6; 
   const dynamicBaseline = baseBaselines[this.dynamicLevel] + adaptiveLift;
 
-  // Time-based decay of buffer (pre-adjust) to allow falling if user stops performing
   const now = Date.now();
   if (this.lastAssessmentAt) {
     const hours = (now - this.lastAssessmentAt.getTime()) / 3600000;
-    if (hours > 0.5) { // decay each half-hour chunk
-      const decayFactor = Math.pow(0.985, hours); // slow decay
+    if (hours > 0.5) { 
+      const decayFactor = Math.pow(0.985, hours);
       this.levelBuffer *= decayFactor;
     }
   }
   this.lastAssessmentAt = new Date(now);
 
-  // Performance gap
-  const gap = composite - dynamicBaseline; // positive -> above baseline
+  const gap = composite - dynamicBaseline; 
 
-  // Reliability weighting: requires both sample size & stability
-  const reliability = Math.min(1, samples / 30) * (0.5 + 0.5 * stabilityFactor); // 0.5..1 as stability improves
+  const reliability = Math.min(1, samples / 30) * (0.5 + 0.5 * stabilityFactor); 
 
-  // Incremental buffer update with shrink when already high
-  const saturation = 1 - Math.min(1, Math.abs(this.levelBuffer)/12); // slows near edges
-  this.levelBuffer += gap * 0.9 * reliability * saturation; // main update
+  const saturation = 1 - Math.min(1, Math.abs(this.levelBuffer)/12);
+  this.levelBuffer += gap * 0.9 * reliability * saturation;
 
-  // Penalize recent negative trend explicitly (last 5 vs previous 5)
   if (this.metricsHistory.length >= 12) {
     const last5 = this.metricsHistory.slice(-5).map(m=>m.composite);
     const prev5 = this.metricsHistory.slice(-10,-5).map(m=>m.composite);
     const avgLast = last5.reduce((a,b)=>a+b,0)/5;
     const avgPrev = prev5.reduce((a,b)=>a+b,0)/5;
     const trend = avgLast - avgPrev;
-    if (trend < -0.35) { // strong decline
-      this.levelBuffer += trend * 1.5; // negative value -> decreases buffer
+    if (trend < -0.35) {
+      this.levelBuffer += trend * 1.5;
     }
   }
 
-  // Error profile penalty (recent errors reduce buffer slightly)
   if (this.errorProfile) {
     const totalErrors = (this.errorProfile.grammar||0)+(this.errorProfile.vocab||0)+(this.errorProfile.tense||0)+(this.errorProfile.agreement||0);
     if (totalErrors > 0) {
-      const recentPenalty = Math.min(0.6, totalErrors * 0.01); // mild
-      this.levelBuffer -= recentPenalty * (1 - stabilityFactor * 0.5); // larger penalty if unstable
+      const recentPenalty = Math.min(0.6, totalErrors * 0.01);
+      this.levelBuffer -= recentPenalty * (1 - stabilityFactor * 0.5);
     }
   }
 
-  // Clamp buffer range
   this.levelBuffer = Math.max(-12, Math.min(12, this.levelBuffer));
 
-  // Promotion / demotion logic with hysteresis
   const order = ['A1','A2','B1'];
   const idx = order.indexOf(this.dynamicLevel);
-  // Need minimum evidence
   if (samples >= 12) {
     if (this.levelBuffer >= 8 && idx < order.length-1 && composite > dynamicBaseline + 0.4 && reliability > 0.6) {
       this.dynamicLevel = order[idx+1];
-      this.levelBuffer = 1; // small carry-over
+      this.levelBuffer = 1;
       if (this.bufferStats) this.bufferStats.promotions += 1;
     } else if (this.levelBuffer <= -8 && idx > 0 && composite < dynamicBaseline - 0.5) {
       this.dynamicLevel = order[idx-1];
@@ -322,20 +305,16 @@ userSchema.methods.applyAdaptiveMetrics = function(metrics) {
     }
   }
 
-  // Update basic skillScores (public surface) & consistency
   this.skillScores.grammar = +(this.emaSkills.grammar.toFixed(2));
   this.skillScores.vocab = +(this.emaSkills.vocab.toFixed(2));
   this.skillScores.fluency = +(this.emaSkills.fluency.toFixed(2));
-  // Consistency derived from stability (invert variability) & reliability
   this.skillScores.consistency = +(Math.min(5, Math.max(0, 5 * (0.4 + 0.6 * stabilityFactor) * reliability))).toFixed(2);
 
-  // Structure targeting: if structure used frequently -> cycle
   if (structureUsed) {
     this.targetStructureAttempts = (this.targetStructureAttempts||0) + 1;
     if (this.targetStructureAttempts >= 4) this.cycleTargetStructure();
   }
 
-  // Update counters
   this.bufferStats.samples = samples;
   this.lastComposite = composite;
 
@@ -367,21 +346,19 @@ userSchema.methods.updateLearningProgress = function(wordId, correct) {
   return entry;
 };
 
-// Utility to ensure daily progress doc is for today
 function todayStr() { return new Date().toISOString().slice(0,10); }
 
 userSchema.methods._ensureDailyContext = function() {
   if (!this.dailyProgress || this.dailyProgress.date !== todayStr()) {
     const prev = this.dailyProgress;
     const prevCompleted = prev && prev.date && prev.completed;
-    // If yesterday was completed and exactly one day gap -> keep streak, else reset when gap >1 and not completed
     if (prev && prev.date) {
       const prevDate = new Date(prev.date + 'T00:00:00Z');
       const diffDays = Math.floor((Date.now() - prevDate.getTime())/86400000);
       if (diffDays === 1) {
-        if (!prevCompleted) this.streak = 0; // missed goal yesterday
+        if (!prevCompleted) this.streak = 0;
       } else if (diffDays > 1) {
-        this.streak = 0; // long gap resets streak
+        this.streak = 0;
       }
     }
     this.dailyProgress = { date: todayStr(), words: 0, messages: 0, completed: false };

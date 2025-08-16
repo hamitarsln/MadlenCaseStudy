@@ -1,126 +1,74 @@
-# Madlen - English Learning Platform
+## 1. Özet
+Case Study her mesajdan sonra gramer / kelime / akıcılık (0–10) skorları üretir, EMA ile yumuşatır ve seviye tamponu (buffer) üzerinden zorluk dengesini ayarlar. Amaç: Gereksiz karar yükü olmadan sürdürülebilir mikro ilerleme.
 
-Lise öğrencileri için yapay zeka destekli İngilizce öğrenme platformu. Bu proje, kişileştirilmiş öğrenme deneyimi sunmak için geliştirildi.
+## 2. Temel Değer
+- Dengeli seviye ilerleme (histerezis buffer)
+- Anlık ama sakin metrikler (EMA)
+- Bağlamsal kelime pekiştirme
+- Günlük hedef ve streak motivasyonu
+- Az fakat anlamlı gösterge seti
 
-## Proje Hakkında
+## 3. Özellik Özeti
+Adaptasyon: Seviye testi, dinamik seviye, hedef yapı rotasyonu
+Sohbet: Çoklu kanal, AI yanıt, kelime önerisi
+Metrikler: Grammar / Vocab / Fluency / Buffer göstergeleri
+Kelime: Seviye & kategori istatistikleri, otomatik ekleme
+Günlük: Hedefler, ilerleme, hata profili, streak
+Güvenlik: JWT, rate limit, CORS kontrolü
 
-Bu platform, lise çağındaki öğrencilerin İngilizce seviyelerini belirleyip, kendi seviyelerine uygun kelimeler öğrenmelerini ve AI tutor ile konuşma pratiği yapmalarını sağlıyor.
+## 4. Adaptif Akış (Kısa)
+Mesaj -> Heuristik skor -> EMA güncelle -> Buffer ayarı -> Gerekirse seviye / hedef yapı güncelle -> Metrik pencere güncelle -> Yanıt.
 
-### Neden Bu Proje?
-- Öğrencilerin bireysel öğrenme hızlarına uyum sağlamak
-- Geleneksel eğitim yöntemlerini teknoloji ile desteklemek  
-- İngilizce konuşma pratiği için güvenli bir ortam sunmak
+## 5. Mimari
+Client: Next.js, React, TailwindCSS
+Server: Node.js (Express), MongoDB (Mongoose)
+State: JWT + Zustand
+Logic: EMA + buffer histerezisi
 
-## Kurulum
-
-### Gereksinimler
-- Node.js (18 ve üzeri)
-- MongoDB (lokal veya Atlas)
-- OpenRouter API anahtarı
-
-### Backend Kurulumu
+## 6. Kurulum
+Backend:
 ```bash
 cd server
 npm install
 cp .env.example .env
-# .env dosyasında gerekli ayarları yapın
 npm run dev
 ```
-
-Database'i test verileri ile doldurmak için:
+Frontend:
 ```bash
-npm run seed
+cd client
+npm install
+cp .env.example .env.local
+npm run dev
+```
+İsteğe bağlı seed:
+```bash
+cd server && npm run seed
 ```
 
-## Özellikler
+## 7. Ortam Değişkenleri (Backend)
+```
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/madlen
+JWT_SECRET=değiştirin
+CLIENT_URL=http://localhost:3000
+GEMINI_API_KEY=...
+```
+Frontend:
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
 
-### 🎯 Seviye Belirleme Sistemi
-- Başlangıçta 5 soruluk hızlı test
-- A1, A2, B1 seviyelerine göre otomatik sınıflandırma
-- İlerlemeye göre seviye güncellemesi
+## 8. Örnek Endpointler
+| Endpoint | Amaç |
+|----------|------|
+| POST /api/auth/login | Kimlik doğrulama |
+| GET /api/chat/channels | Kanallar |
+| POST /api/chat | Mesaj + adaptif döngü |
+| GET /api/users/me | Adaptif durum |
+| GET /api/users/me/daily | Günlük hedefler |
+| GET /api/words/stats/summary | Kelime istatistikleri |
 
-### 📖 Kelime Öğrenme
-- Seviyeye uygun kelime setleri
-- Türkçe çevirileri ve örnek cümleler
-- Sesli telaffuz desteği (gelecek güncelleme)
-- Öğrenme ilerlemesi takibi
-
-### 🤖 AI Öğretmen
-- OpenRouter AI entegrasyonu
-- Seviyeye özel konuşma tarzı
-- Anlık geri bildirim ve düzeltmeler
-- Konuşma geçmişi kaydı
-
-### � İlerleme Takibi
-- Günlük öğrenme hedefleri
-- Streak (süreklilik) sistemi  
-- Öğrenilen kelime istatistikleri
-- Seviye ilerleme grafiği
-
-## Teknoloji Stack
-
-**Backend:**
-- Express.js (Node.js framework)
-- MongoDB (veritabanı)
-- Mongoose (ODM)
-- OpenRouter AI API
-
-**Planlanan Frontend:**
-- Next.js
-- TailwindCSS
-- TypeScript
-
-## API Dokümantasyonu
-
-### Kimlik Doğrulama
-- `POST /api/auth/register` - Yeni kullanıcı kaydı
-- `POST /api/auth/login` - Kullanıcı girişi  
-- `POST /api/auth/level-test` - Seviye testi sonucu kaydetme
-
-### Kullanıcı İşlemleri
-- `GET /api/users/:id` - Kullanıcı profili getirme
-- `PUT /api/users/:id/progress` - İlerleme güncelleme
-- `POST /api/users/:id/learn-word` - Kelime öğrenildi olarak işaretleme
-
-### Kelime Yönetimi
-- `GET /api/words/:level` - Seviyeye göre kelimeler
-- `GET /api/words/search/:query` - Kelime arama
-- `GET /api/words` - Tüm kelimeler (filtreleme ile)
-
-### AI Chat
-- `POST /api/chat` - AI ile konuşma
-- `GET /api/users/:id/chat-history` - Sohbet geçmişi
-
-## Veritabanı Yapısı
-
-### User Schema
-- Temel bilgiler (isim, email)
-- Seviye bilgileri (A1/A2/B1)
-- İlerleme istatistikleri
-- Öğrenilen kelimeler listesi
-- Chat geçmişi
-
-### Word Schema  
-- İngilizce kelime ve anlamı
-- Türkçe çevirisi
-- Örnek cümleler
-- Seviye sınıflandırması
-- Kategori (günlük, akademik, etc.)
-- Zorluk seviyesi
-
-## Geliştirme Planları
-
-- [ ] Frontend (Next.js) geliştirmesi
-- [ ] Ses telaffuz özelliği
-- [ ] Quiz sistemi
-- [ ] Başarı rozetleri
-- [ ] Sosyal özellikler (arkadaş ekleme)
-- [ ] Mobil uygulama
-
-## Katkıda Bulunma
-
-Bu proje eğitim amaçlı geliştirilmektedir. Öneri ve katkılarınız için issue açabilirsiniz.
-
-## Lisans
-
-MIT
+## 9. Veri (Özet)
+User: level, dynamicLevel, levelBuffer, currentTargetStructure, metricsWindow[], daily { goals, progress, streak, errorProfile }.
+Word: word, meaning, translation, level, categories, flags (autoAdded, pendingReview).
+Chat: channel, messages[]{ role, content, scores }.

@@ -16,9 +16,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('madlen-theme', theme);
   },[theme]);
-  const noop = () => {};
+  const toggle = () => setTheme(t => t==='dark' ? 'light':'dark');
   return (
-    <ThemeCtx.Provider value={{ theme, toggle: noop }}>
+    <ThemeCtx.Provider value={{ theme, toggle }}>
       {children}
     </ThemeCtx.Provider>
   );

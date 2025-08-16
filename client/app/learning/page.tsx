@@ -93,7 +93,23 @@ export default function LearningHubPage(){
   if(!user) return <PageLoader text="Giriş gerekli" />;
 
   return (
-    <main className="max-w-7xl mx-auto px-5 md:px-8 py-12 md:py-16">
+    <div className="flex">
+      {/* Sidebar (same style as dashboard basic) */}
+      <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-white/10 min-h-screen sticky top-0 px-5 py-8 gap-6 bg-black/40 backdrop-blur-xl">
+        <div className="flex items-center justify-between mb-2">
+          <Link href="/" className="text-sm font-semibold tracking-wide gradient-text">Madlen</Link>
+        </div>
+        <nav className="flex flex-col gap-1 text-[12px]">
+          <Link href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Pano</Link>
+          <Link href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/70" aria-current="page">Öğrenme</Link>
+          <Link href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">İlerleme</Link>
+        </nav>
+        <div className="mt-auto text-[10px] text-white/30 leading-relaxed">
+          <p className="mb-2 font-semibold text-white/40">İpucu</p>
+          Kısayol: Ctrl+K sohbet odağı (pano). Günlük tekrarlarını burada yönet.
+        </div>
+      </aside>
+      <main className="flex-1 max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-12">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
         <div className="space-y-2">
           <Heading className="leading-tight">Öğrenme Merkezi</Heading>
@@ -197,6 +213,7 @@ export default function LearningHubPage(){
           </Card>
         </div>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

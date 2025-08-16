@@ -16,7 +16,18 @@
   --border: rgba(255,255,255,0.08);
 }
 
-body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); }
+body { -webkit-font-smoothing: antialiased; background: radial-gradient(at 30% 20%, #121212, #050505 70%) fixed; color: var(--text); position:relative; }
+body:before { content:""; position:fixed; inset:0; background:
+  radial-gradient(circle at 80% 10%, rgba(255,195,0,0.05), transparent 60%),
+  radial-gradient(circle at 10% 90%, rgba(255,195,0,0.04), transparent 55%),
+  linear-gradient(120deg, rgba(255,195,0,0.02), transparent 40%, rgba(255,195,0,0.03));
+  pointer-events:none; mix-blend-mode:normal; }
+
+.dark body { background: radial-gradient(at 40% 25%, #0c0c0c, #000 70%) fixed; }
+.dark body:before { background:
+  radial-gradient(circle at 75% 15%, rgba(255,195,0,0.07), transparent 60%),
+  radial-gradient(circle at 15% 85%, rgba(255,195,0,0.06), transparent 55%),
+  linear-gradient(140deg, rgba(255,195,0,0.04), transparent 45%, rgba(255,195,0,0.03)); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; }
@@ -28,10 +39,13 @@ body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--
 :focus-visible { outline: 2px solid #FFC300; outline-offset: 2px; }
 
 /* Gradient text helper */
-.gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-yellow-200 to-primary-500; }
+.gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-primary-200 to-primary-500; filter:brightness(0.95); }
 
 /* Card glass effect */
-.glass { @apply backdrop-blur-md shadow-glow; background: var(--bg-muted); border:1px solid var(--border); }
+.glass { @apply backdrop-blur-xl relative overflow-hidden; background: linear-gradient(140deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)); border:1px solid var(--border); box-shadow:0 0 0 1px rgba(255,255,255,0.03), 0 4px 16px -6px rgba(0,0,0,0.6); }
+.glass:before { content:""; position:absolute; inset:0; background:linear-gradient(160deg, rgba(255,195,0,0.18), transparent 70%); opacity:0; transition:opacity .45s; pointer-events:none; }
+.glass:hover:before { opacity:0.18; }
+.dark .glass { background: linear-gradient(140deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)); }
 
 /* Button base */
 .btn { @apply inline-flex items-center justify-center rounded-md font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
@@ -41,6 +55,16 @@ body { -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--
 /* Animate in */
 .fade-in { animation: fadeIn .6s ease both; }
 @keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+
+/* Subtle grid overlay utility */
+.page-grid:before { content:""; position:fixed; inset:0; background-image:linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px); background-size:120px 120px, 120px 120px; mask:linear-gradient(to bottom, transparent, rgba(0,0,0,0.6) 25%, rgba(0,0,0,0.8)); pointer-events:none; z-index:-1; }
+
+/* Utility for animated gradient text stronger emphasis */
+.brand-accent { background:linear-gradient(90deg,#FFC300,#FFE17A,#FFC300); background-size:200% 100%; animation:brandShift 8s linear infinite; -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:600; }
+@keyframes brandShift { 0% { background-position:0 0;} 100% { background-position:200% 0;} }
+
+/* Elevated focus ring variant */
+.focus-ring-soft:focus-visible { outline:2px solid rgba(255,195,0,0.55); box-shadow:0 0 0 4px rgba(255,195,0,0.18); }
 
 /* Prose styling for AI messages */
 .prose { 

@@ -45,8 +45,36 @@ export default function ProgressPage(){
   if(!user) return <PageLoader text="Oturum kontrol ediliyor..." />;
 
   return (
-    <main className='max-w-6xl mx-auto px-6 py-14 space-y-10'>
-      <Heading>İlerleme</Heading>
+    <div className='flex'>
+      <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-white/10 min-h-screen sticky top-0 px-5 py-8 gap-6 bg-black/40 backdrop-blur-xl">
+        <div className="flex items-center justify-between mb-2">
+          <a href="/" className="text-sm font-semibold tracking-wide gradient-text">Madlen</a>
+        </div>
+        <nav className="flex flex-col gap-1 text-[12px]">
+          <a href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Pano</a>
+          <a href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Öğrenme</a>
+          <a href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/70" aria-current="page">İlerleme</a>
+        </nav>
+        {summary && summary.skillScores && (
+          <div className="mt-4 space-y-3 text-[11px]">
+            <div className="text-[10px] uppercase tracking-wide text-white/40">Beceri</div>
+            <div className="grid grid-cols-2 gap-2">
+              <MiniSkill label="Kelime" value={summary.skillScores.vocab} />
+              <MiniSkill label="Dilbilgisi" value={summary.skillScores.grammar} />
+              <MiniSkill label="Akıcılık" value={summary.skillScores.fluency} />
+              <MiniSkill label="Tutarlılık" value={summary.skillScores.consistency} />
+            </div>
+          </div>
+        )}
+        {summary && summary.levelBuffer !== undefined && (
+          <div className="mt-auto pt-6 border-t border-white/5 text-[10px]">
+            <div className="mb-2 flex items-center justify-between text-white/50"><span>Buffer</span><span className="text-primary">{summary.levelBuffer}/10</span></div>
+            <div className="h-1.5 bg-black/50 rounded-full overflow-hidden"><div className={`h-full ${summary.levelBuffer>=0?'bg-primary':'bg-red-500'}`} style={{width: `${Math.min(100, (Math.abs(summary.levelBuffer)/10)*100)}%`}} /></div>
+          </div>
+        )}
+      </aside>
+      <main className='flex-1 max-w-6xl mx-auto px-6 py-10 space-y-8'>
+      <Heading className='mb-2'>İlerleme</Heading>
       {loading && (
         <div className="flex justify-center">
           <LoadingSpinner size="lg" text="İlerleme verisi yükleniyor..." />
@@ -141,7 +169,8 @@ export default function ProgressPage(){
           </div>
         </div>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -159,6 +188,16 @@ function ErrorMiniChart({ profile }:{ profile: Record<string,number> }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function MiniSkill({ label, value }:{label:string; value:number}){
+  return (
+    <div className="p-2 rounded bg-black/30 border border-white/10 flex flex-col items-start">
+      <span className="text-[9px] text-white/40 uppercase tracking-wide">{label}</span>
+      <div className="w-full h-1 mt-1 rounded bg-black/50 overflow-hidden"><div className="h-full bg-gradient-to-r from-primary to-primary/60" style={{ width: `${(value/5)*100}%`}} /></div>
+      <span className="text-[10px] mt-1 text-primary font-medium">{value.toFixed(1)}/5</span>
     </div>
   );
 }

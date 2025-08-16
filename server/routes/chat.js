@@ -127,9 +127,9 @@ router.post('/', auth, async (req, res) => {
             await user.save();
           }
         }
-      } catch (_) { /* ignore */ }
+      } catch (_) {}
       const visible = cleanResponseForDisplay(aiResponse);
-      await persistChat(user, chatDoc, message, aiResponse); 
+      await persistChat(user, chatDoc, message, aiResponse);
       if (chatDoc.title === 'Yeni Sohbet') {
         chatDoc.title = message.substring(0, 40) + (message.length > 40 ? '…' : '');
         await chatDoc.save();
@@ -196,9 +196,9 @@ router.post('/', auth, async (req, res) => {
     try { user.updateDailyProgress && user.updateDailyProgress('message', 1); await user.save(); } catch(_) {}
 
   let visible = aiResponse
-    .replace(/```json[\s\S]*?```/gi, '') 
-    .replace(/\{\s*"grammar_score"[\s\S]*?\}/gi, '') 
-    .replace(/\n\s*\n/g, '\n') 
+    .replace(/```json[\s\S]*?```/gi, '')
+    .replace(/\{\s*"grammar_score"[\s\S]*?\}/gi, '')
+    .replace(/\n\s*\n/g, '\n')
     .trim();
 
     if (chatDoc.title === 'Yeni Sohbet') {
@@ -207,7 +207,6 @@ router.post('/', auth, async (req, res) => {
     }
 
     await extractAndStoreLearned(user, aiResponse);
-    // naive error category inference for analytics (post-save)
     try {
       const lower = message.toLowerCase();
       const errs = [];
@@ -355,14 +354,12 @@ function analyzeMessage(message) {
   if (!text) {
     return { grammar_score: 1, vocab_score: 1, fluency_score: 1, structure_used: false, new_words: [] };
   }
-  // Basic tokenization (keep simple to avoid deps)
   const tokens = text.split(/\s+/).filter(Boolean);
   const rawWordCount = tokens.length;
   const lowerTokens = tokens.map(t => t.replace(/[^a-zA-Z'-]/g,'').toLowerCase()).filter(Boolean);
   const unique = new Set(lowerTokens);
   const typeTokenRatio = unique.size / Math.max(1, lowerTokens.length);
 
-  // Error heuristics
   const errorPatterns = [
     /(he|she|it) don't\b/i,
     /\bme (like|want|need)\b/i,
@@ -375,41 +372,32 @@ function analyzeMessage(message) {
   ];
   let grammarErrors = 0;
   errorPatterns.forEach(r => { if (r.test(text)) grammarErrors++; });
-  // Over-punctuation or run-on (very long sentence w/o periods)
   const sentenceSplits = text.split(/[.!?]+/).filter(s => s.trim().length);
   const avgSentenceLen = sentenceSplits.length ? rawWordCount / sentenceSplits.length : rawWordCount;
-  if (avgSentenceLen > 28) grammarErrors += 1; // likely run-on
+  if (avgSentenceLen > 28) grammarErrors += 1;
 
-  // Grammar score: start from 4, subtract penalties, add slight boost for complexity usage
   let grammarScore = 4 - grammarErrors;
-  // Complexity bonus if user attempts perfect tense / conditional / passive
   if (/(have|has) \w+ed\b/i.test(text) || /would \b\w+\b/i.test(text) || /was \w+ed\b/i.test(text)) grammarScore += 0.4;
   grammarScore = Math.min(5, Math.max(1, grammarScore));
 
-  // Vocabulary scoring
   const advancedLexicon = [ 'fascinating','crucial','significant','analysis','perspective','concept','improve','strategy','approach','challenge','efficient','creative','complex','accuracy','elaborate','consider','alternative','solution','context','example','experience' ];
   const advancedHits = lowerTokens.filter(t => advancedLexicon.includes(t)).length;
   const rareRatio = advancedHits / Math.max(1, lowerTokens.length);
-  // Penalize repetition: count tokens repeated >2 times
   const freq = {}; lowerTokens.forEach(t=>freq[t]=(freq[t]||0)+1);
   const heavyRepeats = Object.values(freq).filter(c=>c>=3).length;
   let vocabScore = 2.5;
-  vocabScore += Math.min(1.5, typeTokenRatio * 2.5); // diversity up to +1.5
-  vocabScore += Math.min(1.2, rareRatio * 12); // advanced words up to +1.2
-  vocabScore -= Math.min(1, heavyRepeats * 0.4); // repetition penalty
+  vocabScore += Math.min(1.5, typeTokenRatio * 2.5);
+  vocabScore += Math.min(1.2, rareRatio * 12);
+  vocabScore -= Math.min(1, heavyRepeats * 0.4);
   vocabScore = Math.min(5, Math.max(1, vocabScore));
 
-  // Fluency: based on sentence balance, limited errors, moderate length, avoidance of abrupt fragments
   const fragmentCount = sentenceSplits.filter(s => s.trim().split(/\s+/).length < 2).length;
   let fluencyScore = 2.5;
-  if (avgSentenceLen >= 8 && avgSentenceLen <= 22) fluencyScore += 1.0; // healthy sentence length
+  if (avgSentenceLen >= 8 && avgSentenceLen <= 22) fluencyScore += 1.0;
   if (grammarErrors === 0) fluencyScore += 0.8; else fluencyScore -= Math.min(1.2, grammarErrors * 0.4);
   if (fragmentCount > 1) fluencyScore -= Math.min(1, fragmentCount * 0.5);
-  // Long coherent text bonus
   if (rawWordCount > 18 && grammarErrors <= 1) fluencyScore += 0.5;
   fluencyScore = Math.min(5, Math.max(1, fluencyScore));
-
-  // Structure usage detection (higher level constructions)
   const structureUsed = /(have|has) \w+ed\b/i.test(text) || /would \w+\b/i.test(text) || /if .* would/i.test(text) || /because/i.test(text);
 
   return {
@@ -462,7 +450,6 @@ async function extractAndStoreLearned(user, aiResponse) {
           existingLearned.mastery += 1;
         }
       } else {
-        // Auto-add pipeline: minimal placeholder, pending review
         try {
           const placeholder = await Word.create({
             word: raw,
@@ -479,7 +466,7 @@ async function extractAndStoreLearned(user, aiResponse) {
           user.wordsLearned.push({ wordId: placeholder._id, mastery: 1, learnedAt: new Date() });
           user.progress.wordsLearned += 1;
         } catch (e) {
-          // ignore duplicate race or validation errors
+          console.error('Error creating placeholder word:', e);
         }
       }
     }

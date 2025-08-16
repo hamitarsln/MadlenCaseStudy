@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 
-// Use parent app limiter if provided
 router.use((req,res,next)=>{
   const limiter = req.app.get('authLimiter');
   if (limiter) return limiter(req,res,next);
@@ -178,7 +177,6 @@ router.post('/level-test', async (req, res) => {
   }
 });
 
-// Adaptive level test question bank with tiers
 const LEVEL_TEST_BANK = {
   A1: [
     { id: 'A1-1', q: 'Choose correct: I ___ a book now.', a: ['read','am read','am reading','reading'], correct: 2 },
@@ -204,17 +202,12 @@ const LEVEL_TEST_BANK = {
 };
 
 function buildAdaptiveSet() {
-  // Start with A1 baseline; promote tier if 3/4 correct per block of 4
   const sequence = ['A1','A2','B1'];
   const picked = [];
-  // pick 3 from A1
   const shuffle = arr => [...arr].sort(()=>Math.random()-0.5);
   const a1 = shuffle(LEVEL_TEST_BANK.A1).slice(0,3); picked.push(...a1);
-  // add 3 from A2
   const a2 = shuffle(LEVEL_TEST_BANK.A2).slice(0,3); picked.push(...a2);
-  // add 3 from B1
   const b1 = shuffle(LEVEL_TEST_BANK.B1).slice(0,3); picked.push(...b1);
-  // Return without correct info for client
   return picked;
 }
 
