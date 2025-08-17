@@ -5,7 +5,6 @@ require('dotenv').config();
 const User = require('./models/User');
 const Word = require('./models/Word');
 
-// Core sample words (original small set)
 const sampleWords = [
   // A1 Level
   { word: 'hello', meaning: 'a greeting', translation: 'merhaba', example: 'Hello, how are you?', exampleTranslation: 'Merhaba, nasılsın?', level: 'A1', partOfSpeech: 'interjection', category: 'daily' },
@@ -86,7 +85,6 @@ async function seedDatabase() {
     for (const wordData of sampleWords) {
       try { await new Word(wordData).save(); totalInserted++; } catch {}
     }
-    // Attempt to load bulk file if exists
     try {
       const fs = require('fs');
       const path = require('path');

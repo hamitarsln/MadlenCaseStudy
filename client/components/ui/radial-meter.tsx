@@ -2,18 +2,18 @@
 import React from 'react';
 
 interface RadialMeterProps {
-  value: number; // 0-1 normalized
+  value: number;
   size?: number;
   stroke?: number;
   label?: string;
   colorFrom?: string;
   colorTo?: string;
-  suffix?: string; // e.g. '%', 'pt'
-  precision?: number; // displayed precision for inner numeric value (default 0 = percent integer)
-  showPercent?: boolean; // if false, show raw value*100 with precision or treat as already normalized metric
+  suffix?: string; 
+  precision?: number;
+  showPercent?: boolean; 
   children?: React.ReactNode;
   className?: string;
-  idHint?: string; // to help build unique gradient id when SSR multiple
+  idHint?: string; 
 }
 
 let meterSeq = 0;

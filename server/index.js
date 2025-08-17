@@ -8,32 +8,63 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    process.env.CLIENT_URL || 'http://localhost:3000'
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-// Basic global rate limiter
+
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS', 
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later.'
+  }
 });
 app.use(globalLimiter);
 
-// Specialized buckets
 const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 8,
-  message: { success:false, message: 'Çok fazla giriş/deneme. Lütfen birkaç dakika sonra tekrar deneyin.' }
+  windowMs: 10 * 60 * 1000, 
+  max: 8, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { 
+    success: false, 
+    message: 'Çok fazla giriş/deneme. Lütfen birkaç dakika sonra tekrar deneyin.' 
+  }
 });
+
 const chatLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  message: { success:false, message: 'Sohbet hız limiti aşıldı. Biraz bekleyin.' }
+  windowMs: 60 * 1000, 
+  max: 30, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { 
+    success: false, 
+    message: 'Sohbet hız limiti aşıldı. Biraz bekleyin.' 
+  }
 });
 
 app.set('authLimiter', authLimiter);

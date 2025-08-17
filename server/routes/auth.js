@@ -2,9 +2,14 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 
-router.use((req,res,next)=>{
+router.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   const limiter = req.app.get('authLimiter');
-  if (limiter) return limiter(req,res,next);
+  if (limiter) {
+    return limiter(req, res, next);
+  }
   next();
 });
 const jwt = require('jsonwebtoken');
@@ -222,7 +227,6 @@ router.post('/level-test/submit', async (req,res) => {
     if (!Array.isArray(answers) || !userId) return res.status(400).json({ success:false, message:'answers and userId required' });
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success:false, message:'User not found' });
-    // Reconstruct adaptive scoring: determine tier counts
     let correctA1=0, totalA1=0, correctA2=0, totalA2=0, correctB1=0, totalB1=0;
     answers.forEach(ans => {
       const tier = typeof ans.id === 'string' ? ans.id.split('-')[0] : null;
@@ -235,7 +239,6 @@ router.post('/level-test/submit', async (req,res) => {
         if (tier==='A1') correctA1++; if (tier==='A2') correctA2++; if (tier==='B1') correctB1++;
       }
     });
-    // Determine level: if B1 accuracy >=60% choose B1 else if A2 >=60% choose A2 else A1.
     const acc = (c,t)=> t? (c/t):0;
     const accB1 = acc(correctB1,totalB1);
     const accA2 = acc(correctA2,totalA2);

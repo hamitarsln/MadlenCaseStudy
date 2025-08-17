@@ -1,8 +1,13 @@
 const express = require('express');
 const router = express.Router();
-router.use((req,res,next)=>{
+router.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   const limiter = req.app.get('chatLimiter');
-  if (limiter) return limiter(req,res,next);
+  if (limiter) {
+    return limiter(req, res, next);
+  }
   next();
 });
 const User = require('../models/User');

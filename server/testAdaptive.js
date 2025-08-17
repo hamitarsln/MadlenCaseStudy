@@ -83,7 +83,6 @@ async function main() {
   const afterDecline = await getMe();
   printPhase('AFTER DECLINE', afterDecline);
 
-  // Summary deltas
   const deltaBad = afterBad.user.levelBuffer - init.user.levelBuffer;
   const deltaGood = afterGood.user.levelBuffer - afterBad.user.levelBuffer;
   const deltaDecline = afterDecline.user.levelBuffer - afterGood.user.levelBuffer;
@@ -92,7 +91,6 @@ async function main() {
   console.log('Buffer delta (good phase):', deltaGood);
   console.log('Buffer delta (decline phase):', deltaDecline);
 
-  // Simple expectations (not failing build, just info)
   console.log('\nExpectations:');
   console.log('- Bad phase delta should be <= 0 (or small if early stabilization).');
   console.log('- Good phase delta should be > 0.');

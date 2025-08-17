@@ -1,0 +1,40 @@
+version: '3.9'
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+  server:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/madlen
+      CLIENT_URL: http://localhost:3000
+      JWT_SECRET: dev_secret_key_change
+      GEMINI_API_KEY: ""
+    depends_on:
+      - mongo
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+  client:
+    build: ./client
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5000
+      PORT: 3000
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+volumes:
+  mongo_data:

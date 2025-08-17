@@ -34,12 +34,10 @@ export default function Dashboard(){
   const chatInputRef = useRef<HTMLInputElement|null>(null);
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   const { theme, toggle } = useTheme();
-  // Basit, daha az kalabalık görünüm için açılır/kapanır durumlar
   const [showDetails,setShowDetails] = useState(false);
   const [showAllWords,setShowAllWords] = useState(false);
   const [showErrorProfile,setShowErrorProfile] = useState(false);
 
-  // Initial data
   useEffect(()=>{ if(!hydrated||!user) return; (async()=>{
     try { const res = await fetch(`${apiBase}/api/chat/channels`, { headers: authHeader() as Record<string,string> }); if(res.ok){ const d=await res.json(); if(d.success){ const list:Channel[] = d.channels.map((c:any)=>({id:c._id||c.id,title:c.title,updatedAt:c.updatedAt,createdAt:c.createdAt})); setChannels(list); const stored=localStorage.getItem('madlen-current-channel'); setCurrentChannel((stored && list.find(c=>c.id===stored))?stored:(list[0]?.id||null)); } } }
     catch(e:any){ toast.error(e.message||'Kanallar yüklenemedi'); }
@@ -47,19 +45,15 @@ export default function Dashboard(){
     setPageLoading(false);
   })(); },[hydrated,user]);
 
-  // Messages
   useEffect(()=>{ if(!currentChannel||!user){ setChat([]); return; } localStorage.setItem('madlen-current-channel', currentChannel); setChatLoading(true); (async()=>{ try { const r=await fetch(`${apiBase}/api/chat/channels/${currentChannel}`, { headers: authHeader() as Record<string,string> }); if(!r.ok) throw new Error('Mesajlar alınamadı'); const d=await r.json(); if(d.success) setChat(d.channel.messages); } catch(e:any){ toast.error(e.message||'Mesajlar alınamadı'); } finally { setChatLoading(false);} })(); },[currentChannel,user]);
 
-  // Metrics & daily & word stats
   useEffect(()=>{ if(!user) return; (async()=>{ try { const r=await fetch(`${apiBase}/api/users/me`,{headers: authHeader() as Record<string,string>}); if(r.ok){ const d=await r.json(); if(d.success&&d.user) setAdaptiveStatus({buffer:d.user.levelBuffer||0,target:d.user.currentTargetStructure||'present_simple',dyn:d.user.dynamicLevel}); }
     try { const dbg=await fetch(`${apiBase}/api/users/me?debug=1`,{headers: authHeader() as Record<string,string>}); if(dbg.ok){ const jd=await dbg.json(); if(jd.success&&jd.user?.debugAdaptive?.metricsWindow) setMetricsWindow(jd.user.debugAdaptive.metricsWindow); } } catch{}
     const dr=await fetch(`${apiBase}/api/users/me/daily`,{headers: authHeader() as Record<string,string>}); if(dr.ok){ const dd=await dr.json(); if(dd.success) setDaily(dd.daily); }
     try { const ws=await fetch(`${apiBase}/api/words/stats/summary`); if(ws.ok){ const wj=await ws.json(); if(wj.success) setWordStats({levels:wj.levels,categories:wj.categories}); } } catch{}
   } catch{} })(); },[user]);
 
-  // Autoscroll
   useEffect(()=>{ const el=chatContainerRef.current; if(!el) return; requestAnimationFrame(()=>{ try{ el.scrollTop = el.scrollHeight; } catch{} }); },[chat,loading]);
-  // Shortcut
   useEffect(()=>{ function key(e:KeyboardEvent){ if(e.ctrlKey&&(e.key==='k'||e.key==='K')){ e.preventDefault(); chatInputRef.current?.focus(); } if(e.key==='Escape'){ (document.activeElement as HTMLElement)?.blur(); } } window.addEventListener('keydown',key); return ()=> window.removeEventListener('keydown',key); },[]);
 
   async function createChannel(){ try { const r=await fetch(`${apiBase}/api/chat/channels`,{method:'POST',headers:{'Content-Type':'application/json',...(authHeader() as Record<string,string>)},body:JSON.stringify({title:'Yeni Sohbet'})}); const d=await r.json(); if(!d.success) throw new Error(d.message); const ch:Channel={id:d.channel.id,title:d.channel.title}; setChannels(c=>[ch,...c]); setCurrentChannel(ch.id); setChat([]);} catch(e:any){ toast.error(e.message||'Kanal oluşturulamadı'); } }
@@ -239,7 +233,6 @@ function TrendCard({ title, series, color }: { title:string; series:number[]; co
   return <Card className="relative overflow-hidden"><div className="absolute inset-0 opacity-30 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" /><div className="flex items-center justify-between mb-2"><h3 className="font-medium text-sm">{title}</h3><span className="text-xs text-white/40">{series.length}p</span></div><Sparkline data={series} height={48} stroke={color} /><div className="mt-2 flex gap-3 text-[10px] text-white/40"><span>Min <span className="text-white/60">{min}</span></span><span>Max <span className="text-white/60">{max}</span></span><span>Ort <span className="text-white/60">{avg}</span></span></div></Card>;
 }
 
-// Compact mini trend card (one column span of 2 in 12-col grid)
 function TrendMini({ title, series, color }:{title:string; series:number[]; color:string}){
   const last = series.length? series[series.length-1]: 0;
   const mini = series.slice(-12);
