@@ -16,6 +16,8 @@ services:
       CLIENT_URL: http://localhost:3000
       JWT_SECRET: dev_secret_key_change
       GEMINI_API_KEY: ""
+  SEED_ON_START: "true"    
+  RESET_DB: "false"        
     depends_on:
       - mongo
     ports:

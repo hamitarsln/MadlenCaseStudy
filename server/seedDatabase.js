@@ -76,14 +76,22 @@ async function seedDatabase() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    console.log('Clearing existing data...');
-    await User.deleteMany({});
-    await Word.deleteMany({});
+    const reset = process.env.RESET_DB === 'true';
+    if (reset) {
+      console.log('RESET_DB=true -> clearing existing data...');
+      await User.deleteMany({});
+      await Word.deleteMany({});
+    } else {
+      console.log('RESET_DB not set -> keeping existing data, inserting missing docs only');
+    }
 
     console.log('Seeding words...');
     let totalInserted = 0;
     for (const wordData of sampleWords) {
-      try { await new Word(wordData).save(); totalInserted++; } catch {}
+      try {
+        const exists = await Word.findOne({ word: wordData.word });
+        if (!exists) { await new Word(wordData).save(); totalInserted++; }
+      } catch {}
     }
     try {
       const fs = require('fs');
@@ -92,7 +100,10 @@ async function seedDatabase() {
       if (fs.existsSync(bulkPath)) {
         const arr = JSON.parse(fs.readFileSync(bulkPath, 'utf8'));
         for (const w of arr) {
-          try { await new Word(w).save(); totalInserted++; } catch {}
+          try {
+            const exists = await Word.findOne({ word: w.word });
+            if (!exists) { await new Word(w).save(); totalInserted++; }
+          } catch {}
         }
         console.log(`Bulk words loaded: ${arr.length}`);
       }
@@ -100,11 +111,12 @@ async function seedDatabase() {
     console.log(`Total words inserted: ${totalInserted}`);
 
     console.log('Seeding users...');
+    let userInserted = 0;
     for (const userData of sampleUsers) {
-      const user = new User(userData);
-      await user.save();
+      const existing = await User.findOne({ email: userData.email });
+      if (!existing) { await new User(userData).save(); userInserted++; }
     }
-    console.log(`Seeded ${sampleUsers.length} users`);
+    console.log(`Seeded users inserted: ${userInserted}`);
 
     console.log('Database seeding completed successfully!');
     console.log('Sample users created:');

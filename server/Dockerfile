@@ -1,12 +1,17 @@
-# Server Dockerfile
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --production
 
-FROM node:20-alpine AS build
+FROM node:20-alpine AS base
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm install --production && npm cache clean --force
+
+
 COPY . .
+RUN chmod +x docker-entrypoint.sh || true
+
 EXPOSE 5000
+ENV PORT=5000
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node","index.js"]
