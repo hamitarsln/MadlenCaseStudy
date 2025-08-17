@@ -61,7 +61,7 @@ export function RadialMeter({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        {label && <span className="text-[10px] font-medium tracking-wide text-white/60 leading-none mb-0.5">{label}</span>}
+  {label && <span className="text-[10px] font-medium tracking-wide text-soft-dynamic leading-none mb-0.5">{label}</span>}
         <span className="text-sm font-bold bg-gradient-to-br from-primary to-primary/60 text-transparent bg-clip-text leading-none">{display}{suffix}</span>
         {children}
       </div>

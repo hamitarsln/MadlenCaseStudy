@@ -51,13 +51,13 @@ export default function ProgressPage(){
           <a href="/" className="text-sm font-semibold tracking-wide gradient-text">Madlen</a>
         </div>
         <nav className="flex flex-col gap-1 text-[12px]">
-          <a href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Pano</a>
-          <a href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Öğrenme</a>
-          <a href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/70" aria-current="page">İlerleme</a>
+          <a href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic">Pano</a>
+          <a href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic">Öğrenme</a>
+          <a href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic font-semibold" aria-current="page">İlerleme</a>
         </nav>
         {summary && summary.skillScores && (
           <div className="mt-4 space-y-3 text-[11px]">
-            <div className="text-[10px] uppercase tracking-wide text-white/40">Beceri</div>
+            <div className="text-[10px] uppercase tracking-wide text-faint-dynamic">Beceri</div>
             <div className="grid grid-cols-2 gap-2">
               <MiniSkill label="Kelime" value={summary.skillScores.vocab} />
               <MiniSkill label="Dilbilgisi" value={summary.skillScores.grammar} />
@@ -68,7 +68,7 @@ export default function ProgressPage(){
         )}
         {summary && summary.levelBuffer !== undefined && (
           <div className="mt-auto pt-6 border-t border-white/5 text-[10px]">
-            <div className="mb-2 flex items-center justify-between text-white/50"><span>Buffer</span><span className="text-primary">{summary.levelBuffer}/10</span></div>
+            <div className="mb-2 flex items-center justify-between text-soft-dynamic"><span>Buffer</span><span className="text-primary">{summary.levelBuffer}/10</span></div>
             <div className="h-1.5 bg-black/50 rounded-full overflow-hidden"><div className={`h-full ${summary.levelBuffer>=0?'bg-primary':'bg-red-500'}`} style={{width: `${Math.min(100, (Math.abs(summary.levelBuffer)/10)*100)}%`}} /></div>
           </div>
         )}
@@ -89,7 +89,7 @@ export default function ProgressPage(){
                 <div>Başlangıç Level: <span className='text-primary font-medium'>{summary.level}</span></div>
                 <div>Dinamik Level: <span className='text-primary font-medium'>{summary.dynamicLevel}</span></div>
                 {summary.levelBuffer !== undefined && (
-                  <div className="mt-2 p-2 bg-black/30 rounded border border-white/10">
+                  <div className="mt-2 p-2 bg-black/30 rounded border border-white/10 text-soft-dynamic">
                     <div className="flex items-center justify-between text-[10px] mb-1">
                       <span>Buffer İlerlemesi</span>
                       <span className="text-primary">{summary.levelBuffer}/10</span>
@@ -139,7 +139,7 @@ export default function ProgressPage(){
             <Card className='p-5 space-y-3'>
               <h2 className='font-semibold text-sm'>Yapılar</h2>
               <div className='space-y-2 max-h-72 overflow-auto pr-2'>
-                {summary.structures.length === 0 && <div className='text-xs text-white/40'>Henüz yok</div>}
+                {summary.structures.length === 0 && <div className='text-xs text-faint-dynamic'>Henüz yok</div>}
                 {summary.structures.map(s=> (
                   <div key={s.key} className='flex items-center justify-between text-xs bg-black/30 rounded px-2 py-1 border border-white/10'>
                     <span>{s.key}</span>
@@ -153,15 +153,15 @@ export default function ProgressPage(){
             <Card className='p-5'>
               <h2 className='font-semibold text-sm mb-4'>Öğrenilen Kelimeler</h2>
               <div className='grid md:grid-cols-3 gap-4 max-h-[560px] overflow-auto pr-2'>
-                {summary.words.length === 0 && <div className='text-xs text-white/40'>Kelime yok</div>}
+                {summary.words.length === 0 && <div className='text-xs text-faint-dynamic'>Kelime yok</div>}
                 {summary.words.map(w => (
                   <div key={w.id} className='bg-black/40 border border-white/10 rounded p-3 text-xs space-y-1'>
                     <div className='flex justify-between'>
                       <span className='font-medium text-primary'>{w.word}</span>
                       <span className='px-2 py-0.5 rounded bg-primary/20 text-primary-foreground'>{w.level}</span>
                     </div>
-                    <div className='line-clamp-3 text-white/70'>{w.meaning}</div>
-                    <div className='text-[10px] text-white/40'>Mastery {w.mastery}</div>
+                    <div className='line-clamp-3 text-soft-dynamic'>{w.meaning}</div>
+                    <div className='text-[10px] text-faint-dynamic'>Mastery {w.mastery}</div>
                   </div>
                 ))}
               </div>

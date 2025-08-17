@@ -23,7 +23,7 @@ class ErrorBoundary extends React.Component {
             <h2 className="text-xl font-semibold mb-4 text-red-400">
               Bir şeyler yanlış gitti
             </h2>
-            <p className="text-sm text-white/70 mb-6">
+            <p className="text-sm text-soft-dynamic mb-6">
               Uygulama beklenmedik bir hatayla karşılaştı. Sayfayı yeniden yükleyerek tekrar deneyebilirsiniz.
             </p>
             <button 

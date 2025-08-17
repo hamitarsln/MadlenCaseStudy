@@ -78,11 +78,11 @@ export default function Dashboard(){
           <button onClick={toggle} aria-label="Tema" className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 hover:border-primary/60">{theme==='dark'?'🌙':'🌞'}</button>
         </div>
         <nav className="flex flex-col gap-1 text-[12px]">
-          <Link href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/70" aria-current="page">Pano</Link>
-          <Link href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">Öğrenme</Link>
-          <Link href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-white/60">İlerleme</Link>
+          <Link href="/dashboard" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic font-medium" aria-current="page">Pano</Link>
+          <Link href="/learning" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic">Öğrenme</Link>
+          <Link href="/progress" className="px-3 py-2 rounded-md hover:bg-white/5 transition text-soft-dynamic">İlerleme</Link>
         </nav>
-        <div className="text-[10px] uppercase tracking-wider text-white/40 mt-4">Metrikler</div>
+        <div className="text-[10px] uppercase tracking-wider text-faint-dynamic mt-4">Metrikler</div>
         <div className="grid grid-cols-2 gap-3">
           <HeroDial label="Gramer" value={Number(lastMetric.grammar||0)/10} raw={Number(lastMetric.grammar||0)} colors={['#ec4899','#f9a8d4']} />
             <HeroDial label="Kelime" value={Number(lastMetric.vocab||0)/10} raw={Number(lastMetric.vocab||0)} colors={['#f59e0b','#fde68a']} />
@@ -103,8 +103,8 @@ export default function Dashboard(){
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <Heading className="mb-1 text-base">Merhaba, {user.name.split(' ')[0]}</Heading>
-              <div className="flex flex-wrap gap-3 items-center text-[11px] text-white/50">
-                <span>Seviye <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-1 text-white/30">({user.dynamicLevel})</span>}</span>
+        <div className="flex flex-wrap gap-3 items-center text-[11px] text-soft-dynamic">
+          <span>Seviye <span className="text-primary font-medium">{user.level}</span>{user.dynamicLevel && user.dynamicLevel !== user.level && <span className="ml-1 text-faint-dynamic">({user.dynamicLevel})</span>}</span>
                 <span className="flex items-center gap-1"><Gauge size={12} className="text-primary"/>Buf <span className={adaptiveStatus.buffer>=0?'text-primary':'text-red-400'}>{adaptiveStatus.buffer.toFixed(1)}</span></span>
                 <span>Hedef <span className="text-primary font-medium">{adaptiveStatus.target}</span></span>
               </div>
@@ -114,7 +114,7 @@ export default function Dashboard(){
               <MetricNumber label="K" value={Number(lastMetric.vocab||0)} />
               <MetricNumber label="A" value={Number(lastMetric.fluency||0)} />
               <div className="h-6 w-px bg-white/10" />
-              <div className="flex flex-col items-center"><span className="text-[9px] text-white/40">Aktif</span><span className="text-primary font-semibold text-xs">{levelTotals}</span></div>
+              <div className="flex flex-col items-center"><span className="text-[9px] text-faint-dynamic">Aktif</span><span className="text-primary font-semibold text-xs">{levelTotals}</span></div>
               <button onClick={()=> setShowDetails(s=>!s)} className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 hover:border-primary/60 flex items-center gap-1">{showDetails?<ChevronDown size={12}/>:<ChevronRight size={12}/>}Detay</button>
             </div>
           </div>
@@ -126,7 +126,7 @@ export default function Dashboard(){
               <Card className="col-span-3 flex flex-col justify-center px-4 py-3 gap-1 text-[11px]">
                 {wordStats.levels && (
                   <div className="flex flex-wrap gap-1 max-h-14 overflow-auto custom-scroll">
-                    {wordStats.levels.sort((a:any,b:any)=> a.level.localeCompare(b.level)).slice(0,10).map((l:any)=> <span key={l.level} className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-white/50 text-[10px]">{l.level}:{l.count}</span>)}
+                    {wordStats.levels.sort((a:any,b:any)=> a.level.localeCompare(b.level)).slice(0,10).map((l:any)=> <span key={l.level} className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-soft-dynamic text-[10px]">{l.level}:{l.count}</span>)}
                   </div>
                 )}
               </Card>
@@ -156,8 +156,8 @@ export default function Dashboard(){
                   <MessageFormatter content={m.message} isUser={m.isUser} />
                 </motion.div>
               ))}
-              {loading && <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-white/40"><LoadingSpinner size="sm" /><span>AI yazıyor...</span></div>}
-              {!loading && !chatLoading && chat.length===0 && <div className="text-[11px] text-white/40 pt-6">Henüz mesaj yok. Önerilen kelimelerden bazılarını kullan.</div>}
+              {loading && <div className="flex items-center gap-2 text-xs text-soft-dynamic"><LoadingSpinner size="sm" /><span>AI yazıyor...</span></div>}
+              {!loading && !chatLoading && chat.length===0 && <div className="text-[11px] text-faint-dynamic pt-6">Henüz mesaj yok. Önerilen kelimelerden bazılarını kullan.</div>}
             </div>
             <div className="absolute left-0 right-0 bottom-0 p-2 bg-gradient-to-t from-black/70 via-black/40 to-transparent backdrop-blur-sm">
               <div className="flex gap-2">
@@ -176,7 +176,7 @@ export default function Dashboard(){
                 {(showAllWords?words:words.slice(0,6)).map(w=>(
                   <div key={w._id} className="rounded-md p-2 border border-[var(--border)] dark:border-white/10 hover:border-primary/60 transition bg-[var(--bg-muted)]/60 dark:bg-black/40">
                     <div className="flex justify-between mb-0.5"><span className="font-medium text-primary-400 text-[11px]">{w.word}</span><span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary-200">{w.level}</span></div>
-                    <p className="text-[10px] text-white/60 line-clamp-2 leading-snug">{w.meaning}</p>
+                    <p className="text-[10px] text-soft-dynamic line-clamp-2 leading-snug">{w.meaning}</p>
                   </div>
                 ))}
               </div>
@@ -191,7 +191,7 @@ export default function Dashboard(){
                   </div>
                 </div>
                 {!showGoalsEdit && (
-                  <div className="space-y-1 text-white/60">
+                  <div className="space-y-1 text-soft-dynamic">
                     <GoalRow label="Mesaj" v={daily.progress.messages} g={daily.goals.messages} />
                     <GoalRow label="Kelime" v={daily.progress.words} g={daily.goals.words} />
                     <div className="flex justify-between items-center pt-1"><span>Streak</span><span className="text-primary font-semibold">{daily.streak}🔥</span></div>
@@ -205,7 +205,7 @@ export default function Dashboard(){
                 {showGoalsEdit && <DailyGoalsForm apiBase={apiBase} initial={daily.goals} onUpdate={(g)=> setDaily((d:any)=>({...d,goals:g}))} />}
               </Card>
             )}
-            <Card className="p-4 text-[11px]"><h2 className="font-semibold mb-1 text-xs">Motivasyon</h2><p className="text-white/60 leading-snug">Her gün küçük adımlar büyük ivme yaratır.</p></Card>
+            <Card className="p-4 text-[11px]"><h2 className="font-semibold mb-1 text-xs">Motivasyon</h2><p className="text-soft-dynamic leading-snug">Her gün küçük adımlar büyük ivme yaratır.</p></Card>
           </div>
         </div>
       </main>

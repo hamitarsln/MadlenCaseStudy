@@ -21,7 +21,7 @@ export function LoadingSpinner({ size = 'md', text }: LoadingSpinnerProps) {
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       />
       {text && (
-        <p className="text-sm text-white/60 animate-pulse">{text}</p>
+  <p className="text-sm text-soft-dynamic animate-pulse">{text}</p>
       )}
     </div>
   );

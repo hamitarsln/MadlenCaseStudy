@@ -62,16 +62,16 @@ export function AuthForm() {
       </div>
       {mode === 'register' && (
         <div className="space-y-1">
-          <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="name">Ad Soyad</label>
+          <label className="text-xs font-medium tracking-wide text-soft-dynamic" htmlFor="name">Ad Soyad</label>
           <input id="name" name="name" value={form.name} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/910 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
         </div>
       )}
       <div className="space-y-1">
-        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="email">E-posta</label>
+  <label className="text-xs font-medium tracking-wide text-soft-dynamic" htmlFor="email">E-posta</label>
         <input id="email" name="email" type="email" value={form.email} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium tracking-wide text-neutral-600 dark:text-white/70" htmlFor="password">Şifre</label>
+  <label className="text-xs font-medium tracking-wide text-soft-dynamic" htmlFor="password">Şifre</label>
         <input id="password" name="password" type="password" value={form.password} onChange={handleChange} className="w-full rounded-md px-3 py-2 bg-white/90 dark:bg-white/5 border border-neutral-300 dark:border-white/10 text-sm text-neutral-800 dark:text-white placeholder-neutral-400 dark:placeholder-white/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
       </div>
       <button disabled={loading} className="w-full h-11 rounded-md font-semibold tracking-wide bg-primary text-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_12px_-2px_rgba(0,0,0,0.25),0_0_20px_-2px_rgba(255,196,0,0.6)] hover:brightness-105 transition focus:outline-none focus:ring-2 focus:ring-primary/50">{loading ? '...' : (mode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur')}</button>

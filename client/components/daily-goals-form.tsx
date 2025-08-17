@@ -29,11 +29,11 @@ export function DailyGoalsForm({ apiBase, initial, onUpdate }:{ apiBase:string; 
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 text-xs">
         <label className="space-y-1">
-          <span className="block text-[10px] uppercase tracking-wide text-white/40">Günlük Kelime</span>
+          <span className="block text-[10px] uppercase tracking-wide text-faint-dynamic">Günlük Kelime</span>
           <input type="number" min={1} max={200} value={words} onChange={e=> setWords(parseInt(e.target.value)||1)} className="w-full rounded bg-black/40 border border-white/10 px-2 py-1 focus:border-primary outline-none" />
         </label>
         <label className="space-y-1">
-          <span className="block text-[10px] uppercase tracking-wide text-white/40">Günlük Mesaj</span>
+          <span className="block text-[10px] uppercase tracking-wide text-faint-dynamic">Günlük Mesaj</span>
           <input type="number" min={1} max={500} value={messages} onChange={e=> setMessages(parseInt(e.target.value)||1)} className="w-full rounded bg-black/40 border border-white/10 px-2 py-1 focus:border-primary outline-none" />
         </label>
       </div>
