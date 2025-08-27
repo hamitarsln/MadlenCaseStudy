@@ -1,14 +1,3 @@
-/**
- * Adaptive system integration test
- * Steps:
- * 1. Register random user
- * 2. Fetch initial /me?debug=1
- * 3. Send low quality messages -> capture metrics
- * 4. Send high quality messages -> capture metrics
- * 5. Send decline messages -> capture metrics
- * 6. Output deltas
- */
-
 const BASE = process.env.BASE || 'http://localhost:5000';
 
 async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }

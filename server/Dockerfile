@@ -6,12 +6,14 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm install --production && npm cache clean --force
 
+COPY docker-entrypoint.sh /usr/local/bin/app-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/app-entrypoint.sh && chmod +x /usr/local/bin/app-entrypoint.sh
 
 COPY . .
-RUN chmod +x docker-entrypoint.sh || true
 
 EXPOSE 5000
 ENV PORT=5000
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Use sh explicitly
+ENTRYPOINT ["sh","/usr/local/bin/app-entrypoint.sh"]
 CMD ["node","index.js"]

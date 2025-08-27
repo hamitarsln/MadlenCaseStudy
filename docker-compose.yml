@@ -12,10 +12,11 @@ services:
     restart: unless-stopped
     environment:
       PORT: 5000
-      MONGODB_URI: mongodb://mongo:27017/madlen
+      MONGODB_URI: mongodb://mongo:27017/madlen-casestudy
       CLIENT_URL: http://localhost:3000
-      JWT_SECRET: dev_secret_key_change
-      GEMINI_API_KEY: ""
+  JWT_SECRET: dev_secret_key_change
+  # Provide GEMINI_API_KEY via local .env or environment; keep empty in versioned compose
+  GEMINI_API_KEY: ""
       SEED_ON_START: "true"
       RESET_DB: "false"
     depends_on:
